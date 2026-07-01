@@ -165,6 +165,8 @@
     text-align: left;
   }
   .mode-card.featured { background: var(--mei); color: #fff; }
+  .mode-card.daily { background: #fff9e6; border: 2px solid var(--gold); }
+  .mode-card.daily-done { opacity: 0.6; cursor: default; }
   .mode-card .mode-icon { font-size: 36px; }
   .mode-card .mode-title { font-weight: 900; font-size: 20px; }
   .mode-card .mode-desc { font-size: 15px; opacity: 0.8; }
@@ -406,6 +408,14 @@
         <b><span id="modes-streak">0</span>日</b>
       </div>
     </div>
+
+    <button class="mode-card daily" id="daily-card" onclick="startMode('daily')">
+      <span class="mode-icon">📅</span>
+      <span>
+        <span class="mode-title">今日の1問</span><br>
+        <span class="mode-desc" id="daily-desc">毎日変わる1問に挑戦。みんな同じ問題だよ</span>
+      </span>
+    </button>
 
     <button class="mode-card featured" onclick="startMode('timeAttack')">
       <span class="mode-icon">⏱️</span>
