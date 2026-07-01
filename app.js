@@ -1,0 +1,520 @@
+// 愛生博士クイズゲーム — ゲームロジック
+// サーバー不要・localStorage完結のフェーズ1モックアップ
+
+const STORAGE_KEY = 'meiHakaseSave';
+const QUESTION_TIME_LIMIT = 8; // 秒（タイムアタック・エンドレスのみ）
+const TIME_ATTACK_SECONDS = 60;
+const TIME_ATTACK_QUESTIONS = 10;
+
+const INTRO_QUESTIONS = [
+  {
+    question: "あなたが好きなのは？",
+    choices: ["めいちゃん", "パンダさん"],
+    answerIndex: 0, // どちらを選んでも正解扱い（絶対に間違えられない導入）
+    alwaysCorrect: true
+  },
+  {
+    question: "パンダさんの色は？",
+    choices: ["白と黒", "赤と青"],
+    answerIndex: 0,
+    alwaysCorrect: true
+  }
+];
+
+function defaultSave() {
+  return {
+    version: 1,
+    nickname: null,
+    onboarded: false,
+    streak: { count: 0, lastPlayedDate: null },
+    highScores: { timeAttack: 0, endless: 0 },
+    wrongQuestions: {},
+    totalStats: { totalAnswered: 0, totalCorrect: 0 }
+  };
+}
+
+function loadSave() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultSave();
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.version !== 1) return defaultSave();
+    return parsed;
+  } catch (e) {
+    return defaultSave();
+  }
+}
+
+function writeSave(save) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(save));
+}
+
+let save = loadSave();
+
+// ==================== 画面切り替え ====================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ==================== 起動処理 ====================
+function boot() {
+  if (!save.onboarded) {
+    startIntro();
+  } else {
+    goToModes();
+  }
+}
+
+// ==================== 導入クイズ（初回のみ） ====================
+let introIndex = 0;
+
+function startIntro() {
+  introIndex = 0;
+  showScreen('screen-intro');
+  renderIntroQuestion();
+}
+
+function renderIntroQuestion() {
+  const q = INTRO_QUESTIONS[introIndex];
+  document.getElementById('intro-question').textContent = q.question;
+  const box = document.getElementById('intro-choices');
+  box.innerHTML = '';
+  q.choices.forEach((choice, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.textContent = choice;
+    btn.onclick = () => answerIntro(i);
+    box.appendChild(btn);
+  });
+}
+
+function answerIntro(i) {
+  introIndex++;
+  if (introIndex < INTRO_QUESTIONS.length) {
+    renderIntroQuestion();
+  } else {
+    showScreen('screen-name');
+  }
+}
+
+function submitName() {
+  const input = document.getElementById('name-input');
+  const nickname = input.value.trim();
+  save.nickname = nickname || '名無しのパンダさん';
+  save.onboarded = true;
+  writeSave(save);
+  goToModes();
+}
+
+function skipName() {
+  save.nickname = '名無しのパンダさん';
+  save.onboarded = true;
+  writeSave(save);
+  goToModes();
+}
+
+// ==================== モード選択画面 ====================
+function goToModes() {
+  document.getElementById('modes-greeting').textContent = `おかえり、${save.nickname}！`;
+  document.getElementById('modes-best-timeattack').textContent = save.highScores.timeAttack;
+  document.getElementById('modes-best-endless').textContent = save.highScores.endless;
+  document.getElementById('modes-streak').textContent = save.streak.count;
+  showScreen('screen-modes');
+}
+
+// ==================== クイズ本体 ====================
+let session = null; // 現在のプレイセッション状態
+
+function pickQuestions(pool, count) {
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
+function weightedPoolForTimeAttack() {
+  const easy = QUIZ_DATA.filter(q => q.difficulty <= 2);
+  const hard = QUIZ_DATA.filter(q => q.difficulty >= 3);
+  const easyPicks = pickQuestions(easy, 8);
+  const hardPicks = pickQuestions(hard, 2);
+  return [...easyPicks, ...hardPicks].sort(() => Math.random() - 0.5);
+}
+
+function endlessQueueForDifficulty(level) {
+  const pool = QUIZ_DATA.filter(q => q.difficulty === Math.min(level, 4));
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : QUIZ_DATA[Math.floor(Math.random() * QUIZ_DATA.length)];
+}
+
+function reviewPool() {
+  const wrongIds = Object.keys(save.wrongQuestions);
+  const wrongOnes = QUIZ_DATA.filter(q => wrongIds.includes(q.id))
+    .sort((a, b) => (save.wrongQuestions[b.id].wrongCount) - (save.wrongQuestions[a.id].wrongCount));
+  const rest = QUIZ_DATA.filter(q => !wrongIds.includes(q.id));
+  return [...wrongOnes, ...pickQuestions(rest, Math.max(0, 10 - wrongOnes.length))];
+}
+
+function startMode(mode) {
+  session = {
+    mode,
+    index: 0,
+    correctCount: 0,
+    answeredCount: 0,
+    endlessLevel: 1,
+    questions: [],
+    timerHandle: null,
+    clockHandle: null,
+    remainingClock: TIME_ATTACK_SECONDS
+  };
+
+  if (mode === 'timeAttack') {
+    session.questions = weightedPoolForTimeAttack();
+    document.getElementById('play-clock-wrap').style.display = 'block';
+    startOverallClock();
+  } else if (mode === 'endless') {
+    session.questions = [endlessQueueForDifficulty(1)];
+    document.getElementById('play-clock-wrap').style.display = 'none';
+  } else if (mode === 'study') {
+    session.questions = reviewPool();
+    document.getElementById('play-clock-wrap').style.display = 'none';
+  }
+
+  showScreen('screen-play');
+  renderQuestion();
+}
+
+function startOverallClock() {
+  session.remainingClock = TIME_ATTACK_SECONDS;
+  updateClockDisplay();
+  session.clockHandle = setInterval(() => {
+    session.remainingClock--;
+    updateClockDisplay();
+    if (session.remainingClock <= 0) {
+      clearInterval(session.clockHandle);
+      endSession();
+    }
+  }, 1000);
+}
+
+function updateClockDisplay() {
+  document.getElementById('play-clock').textContent = session.remainingClock;
+}
+
+function currentQuestion() {
+  if (session.mode === 'endless') {
+    return session.questions[0];
+  }
+  return session.questions[session.index];
+}
+
+function renderQuestion() {
+  const q = currentQuestion();
+  if (!q) {
+    endSession();
+    return;
+  }
+  session.locked = false;
+
+  document.getElementById('play-category').textContent = categoryLabel(q.category);
+  document.getElementById('play-question').textContent = q.question;
+  document.getElementById('play-feedback').textContent = '';
+  document.getElementById('play-feedback').className = 'feedback';
+
+  const progressText = session.mode === 'endless'
+    ? `連続正解 ${session.correctCount}問目`
+    : `${session.index + 1} / ${session.questions.length}問`;
+  document.getElementById('play-progress').textContent = progressText;
+
+  const box = document.getElementById('play-choices');
+  box.innerHTML = '';
+  q.choices.forEach((choice, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.textContent = choice;
+    btn.onclick = () => answerQuestion(i);
+    box.appendChild(btn);
+  });
+
+  if (session.mode !== 'study') {
+    startQuestionTimer();
+  }
+}
+
+function categoryLabel(cat) {
+  return { profile: 'プロフィール', timeline: '年表', quotes: '語録', style: '文体' }[cat] || cat;
+}
+
+function startQuestionTimer() {
+  clearQuestionTimer();
+  let remaining = QUESTION_TIME_LIMIT;
+  const bar = document.getElementById('play-timer-bar');
+  bar.style.width = '100%';
+  session.timerHandle = setInterval(() => {
+    remaining -= 0.1;
+    bar.style.width = Math.max(0, (remaining / QUESTION_TIME_LIMIT) * 100) + '%';
+    if (remaining <= 0) {
+      clearQuestionTimer();
+      answerQuestion(-1); // 時間切れ＝不正解扱い
+    }
+  }, 100);
+}
+
+function clearQuestionTimer() {
+  if (session.timerHandle) {
+    clearInterval(session.timerHandle);
+    session.timerHandle = null;
+  }
+}
+
+function answerQuestion(choiceIndex) {
+  if (session.locked) return;
+  session.locked = true;
+  clearQuestionTimer();
+  const q = currentQuestion();
+  const correct = choiceIndex === q.answerIndex;
+
+  session.answeredCount++;
+  if (correct) session.correctCount++;
+
+  recordAnswerResult(q, correct);
+
+  const feedbackEl = document.getElementById('play-feedback');
+  feedbackEl.textContent = correct ? correctFlavorText() : q.wrongComment;
+  feedbackEl.className = 'feedback ' + (correct ? 'feedback-correct' : 'feedback-wrong');
+
+  document.querySelectorAll('#play-choices .choice-btn').forEach((btn, i) => {
+    btn.disabled = true;
+    if (i === q.answerIndex) btn.classList.add('is-correct');
+    if (i === choiceIndex && !correct) btn.classList.add('is-wrong');
+  });
+
+  setTimeout(() => advance(correct), 1100);
+}
+
+const CORRECT_FLAVORS = [
+  'パンダさんパワーMAXです！正解〜！',
+  'ウルトラパンダさんパワーMAX！大正解！',
+  'どさんこパンダさんパワーMAXで正解〜！',
+  'スペシャルパンダさんパワーMAX！やったね！',
+  'と〜〜っても正解！パンダさんパワー充電中です🐼'
+];
+function correctFlavorText() {
+  return CORRECT_FLAVORS[Math.floor(Math.random() * CORRECT_FLAVORS.length)];
+}
+
+function recordAnswerResult(q, correct) {
+  save.totalStats.totalAnswered++;
+  if (correct) {
+    save.totalStats.totalCorrect++;
+    if (save.wrongQuestions[q.id]) {
+      // 復習で正解できたら履歴から軽くする
+      delete save.wrongQuestions[q.id];
+    }
+  } else {
+    const today = new Date().toISOString().slice(0, 10);
+    const existing = save.wrongQuestions[q.id];
+    save.wrongQuestions[q.id] = {
+      wrongCount: (existing ? existing.wrongCount : 0) + 1,
+      lastWrongDate: today
+    };
+  }
+  writeSave(save);
+}
+
+function advance(lastWasCorrect) {
+  if (session.mode === 'timeAttack') {
+    session.index++;
+    if (session.index >= session.questions.length || session.index >= TIME_ATTACK_QUESTIONS) {
+      endSession();
+    } else {
+      renderQuestion();
+    }
+  } else if (session.mode === 'endless') {
+    if (!lastWasCorrect) {
+      endSession();
+      return;
+    }
+    session.endlessLevel = 1 + Math.floor(session.correctCount / 3);
+    session.questions = [endlessQueueForDifficulty(session.endlessLevel)];
+    renderQuestion();
+  } else if (session.mode === 'study') {
+    session.index++;
+    if (session.index >= session.questions.length) {
+      endSession();
+    } else {
+      renderQuestion();
+    }
+  }
+}
+
+function endSession() {
+  clearQuestionTimer();
+  if (session.clockHandle) clearInterval(session.clockHandle);
+
+  updateStreakOnPlay();
+
+  let score, bestKey, label;
+  if (session.mode === 'timeAttack') {
+    score = session.correctCount;
+    bestKey = 'timeAttack';
+    label = 'タイムアタック';
+  } else if (session.mode === 'endless') {
+    score = session.correctCount;
+    bestKey = 'endless';
+    label = 'エンドレス';
+  } else {
+    score = session.correctCount;
+    bestKey = null;
+    label = '学習モード';
+  }
+
+  let isNewBest = false;
+  if (bestKey) {
+    if (score > save.highScores[bestKey]) {
+      save.highScores[bestKey] = score;
+      isNewBest = true;
+    }
+    writeSave(save);
+  }
+
+  document.getElementById('result-mode-label').textContent = label;
+  document.getElementById('result-score').textContent = `${score} / ${session.answeredCount}問`;
+  document.getElementById('result-best-wrap').style.display = bestKey ? 'block' : 'none';
+  if (bestKey) {
+    document.getElementById('result-best').textContent = save.highScores[bestKey];
+  }
+  document.getElementById('result-newbest').style.display = isNewBest ? 'block' : 'none';
+  document.getElementById('result-streak').textContent = save.streak.count;
+
+  lastResult = { mode: session.mode, score, answeredCount: session.answeredCount, isNewBest };
+
+  showScreen('screen-result');
+  currentSessionMode = session.mode;
+
+  if (isNewBest) celebrate();
+}
+
+// ==================== 自己ベスト更新エフェクト（パン・パン・シャラララ〜ん） ====================
+const CONFETTI_COLORS = ['#079C15', '#00C853', '#FFC107', '#FF6F91', '#42A5F5'];
+const RAIN_SPARKLES = ['✨', '🌟', '💫'];
+
+function spawnBurst(layer, originX, originY, fromLeft, delay) {
+  for (let i = 0; i < 14; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece burst';
+    const spread = (Math.random() * 70 - 35);
+    const angle = (fromLeft ? -55 + spread : -125 + spread) * (Math.PI / 180);
+    const dist = 70 + Math.random() * 90;
+    p.style.left = originX + 'px';
+    p.style.top = originY + 'px';
+    p.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+    p.style.setProperty('--tx', (Math.cos(angle) * dist) + 'px');
+    p.style.setProperty('--ty', (Math.sin(angle) * dist) + 'px');
+    p.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+    p.style.animationDelay = delay + 'ms';
+    layer.appendChild(p);
+  }
+}
+
+function spawnRain(layer, width, startY, rangeHeight) {
+  for (let i = 0; i < 26; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece rain';
+    p.textContent = RAIN_SPARKLES[Math.floor(Math.random() * RAIN_SPARKLES.length)];
+    p.style.left = (Math.random() * width) + 'px';
+    p.style.top = startY + 'px';
+    p.style.fontSize = (12 + Math.random() * 10) + 'px';
+    p.style.setProperty('--fall', (rangeHeight * (0.5 + Math.random() * 0.5)) + 'px');
+    p.style.setProperty('--sway', (Math.random() * 60 - 30) + 'px');
+    p.style.setProperty('--rot', (Math.random() * 360) + 'deg');
+    p.style.animationDuration = (1300 + Math.random() * 900) + 'ms';
+    p.style.animationDelay = (280 + Math.random() * 650) + 'ms';
+    layer.appendChild(p);
+  }
+}
+
+function celebrate() {
+  const app = document.getElementById('app');
+  const resultScreen = document.getElementById('screen-result');
+  const mascotEl = resultScreen.querySelector('.mascot');
+  const shareBtn = resultScreen.querySelector('.share-btn');
+
+  const appRect = app.getBoundingClientRect();
+  const mascotRect = mascotEl.getBoundingClientRect();
+  const shareRect = shareBtn.getBoundingClientRect();
+
+  // メイメイの画像〜Xシェアボタンの表示範囲（#app基準の相対座標）に収める
+  const contentTop = mascotRect.top - appRect.top;
+  const contentBottom = shareRect.bottom - appRect.top;
+  const rangeHeight = contentBottom - contentTop;
+
+  const layer = document.createElement('div');
+  layer.className = 'celebration-layer';
+  app.appendChild(layer);
+
+  const w = app.clientWidth;
+
+  spawnBurst(layer, 16, contentBottom, true, 0);       // パン（左から）
+  spawnBurst(layer, w - 16, contentBottom, false, 150); // パン（右から、少し遅れて）
+  spawnRain(layer, w, contentTop, rangeHeight);          // シャラララ〜ん（表示範囲内でキラキラ）
+
+  setTimeout(() => layer.remove(), 2700);
+}
+
+let currentSessionMode = null;
+let lastResult = null;
+
+// ==================== Xシェア ====================
+function buildShareText(result) {
+  const bonus = result.isNewBest ? '🎉自己ベスト更新！🎉\n' : '';
+  if (result.mode === 'timeAttack') {
+    return `${bonus}愛生博士クイズのタイムアタックで${result.score}問正解でした🐼\nあなたは何問いける？\n#愛生博士クイズ #山﨑愛生`;
+  }
+  if (result.mode === 'endless') {
+    return `${bonus}愛生博士クイズのエンドレスモードで${result.score}問連続正解🐼✨\nこの記録、超えられる？\n#愛生博士クイズ #山﨑愛生`;
+  }
+  return `愛生博士クイズの学習モードで${result.score}問復習しました📖🐼\n愛生ちゃん博士に一歩近づいたかも\n#愛生博士クイズ #山﨑愛生`;
+}
+
+function shareToX() {
+  if (!lastResult) return;
+  const text = buildShareText(lastResult);
+  const url = location.href.split('?')[0].split('#')[0];
+  const intent = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(url);
+  window.open(intent, '_blank', 'noopener');
+}
+
+function playAgain() {
+  startMode(currentSessionMode);
+}
+
+function backToModes() {
+  goToModes();
+}
+
+function updateStreakOnPlay() {
+  const today = new Date().toISOString().slice(0, 10);
+  if (save.streak.lastPlayedDate === today) return;
+
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  if (save.streak.lastPlayedDate === yesterday) {
+    save.streak.count += 1;
+  } else {
+    save.streak.count = 1;
+  }
+  save.streak.lastPlayedDate = today;
+  writeSave(save);
+}
+
+// ==================== 図鑑（学習モードのサブ画面） ====================
+function openEncyclopedia() {
+  const list = document.getElementById('encyclopedia-list');
+  list.innerHTML = '';
+  QUIZ_DATA.forEach(q => {
+    const item = document.createElement('div');
+    item.className = 'encyclopedia-item';
+    item.innerHTML = `<div class="encyclopedia-q">${q.question}</div><div class="encyclopedia-a">${q.explanation}</div>`;
+    list.appendChild(item);
+  });
+  showScreen('screen-encyclopedia');
+}
+
+boot();
