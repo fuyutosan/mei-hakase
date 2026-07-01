@@ -166,6 +166,27 @@
   .mode-card .mode-title { font-weight: 900; font-size: 20px; }
   .mode-card .mode-desc { font-size: 15px; opacity: 0.8; }
 
+  .rank-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    background: #eefbf0;
+    border: 2px solid var(--mei);
+    border-radius: 16px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .rank-label { font-size: 12px; color: #5c5c5c; }
+  .rank-title {
+    font-family: 'Orbitron', 'Noto Sans JP', sans-serif;
+    font-size: 19px;
+    font-weight: 900;
+    color: var(--mei);
+  }
+  .rank-progress { font-size: 12px; color: #888; }
+
   .status-bar {
     display: flex;
     gap: 10px;
@@ -363,6 +384,11 @@
   <section id="screen-modes" class="screen">
     <img class="mascot" src="assets/Meimei.png" alt="愛生博士">
     <h2 id="modes-greeting" class="center">おかえり！</h2>
+    <div class="rank-badge">
+      <span class="rank-label">現在のランク</span>
+      <span class="rank-title" id="modes-rank">愛生博士見習い</span>
+      <span class="rank-progress" id="modes-rank-progress"></span>
+    </div>
     <div class="status-bar">
       <div class="status-item">
         <span class="status-label">タイムアタック<br>ハイスコア</span>
@@ -424,6 +450,7 @@
     <div id="result-score">0</div>
     <div id="result-best-wrap">自己ベスト：<span id="result-best">0</span></div>
     <p class="center" style="font-size:13px;color:#888;">連続プレイ <span id="result-streak">0</span>日目</p>
+    <p class="center" id="result-rank" style="font-size:14px;color:var(--mei);font-weight:700;margin-bottom:16px;"></p>
     <button class="primary-btn" onclick="playAgain()">🔁 もう1回！</button>
     <button class="share-btn" onclick="shareToX()">🐦 Xで結果をシェア</button>
     <button class="secondary-btn" onclick="backToModes()">モードを選び直す</button>
