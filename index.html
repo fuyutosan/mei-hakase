@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>愛生博士クイズ 🐼</title>
+<meta name="description" content="山﨑愛生ちゃんについてのクイズに挑戦！あなたは何問正解できる？">
+<meta property="og:title" content="愛生博士クイズ 🐼">
+<meta property="og:description" content="山﨑愛生ちゃんについてのクイズに挑戦！あなたは何問正解できる？">
+<!-- 公開後は og:image を https://... の絶対URLに直すこと（Xは相対パスの画像を読み込めない） -->
+<meta property="og:image" content="assets/ogp.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="assets/ogp.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --mei: #079C15;
+    --mei-light: #00C853;
+    --paper: #FAFAF5;
+    --ink: #2a2a2a;
+    --wrong: #E53935;
+    --gold: #FFC107;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Noto Sans JP', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  #app {
+    width: 100%;
+    max-width: 480px;
+    min-height: 100vh;
+    background: #fff;
+    box-shadow: 0 0 24px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .screen {
+    display: none;
+    flex-direction: column;
+    padding: 28px 20px 32px;
+    flex: 1;
+  }
+  .screen.active { display: flex; }
+
+  h1, h2 {
+    font-family: 'Orbitron', 'Noto Sans JP', sans-serif;
+    color: var(--mei);
+    margin: 0 0 8px;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+
+  h1 { font-size: 26px; }
+  h2 { font-size: 20px; }
+
+  .mascot {
+    width: 88px;
+    height: 88px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto 16px;
+  }
+
+  .center { text-align: center; }
+
+  .subtitle {
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+
+  .choice-btn {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    margin-bottom: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    border: 2px solid var(--mei);
+    border-radius: 16px;
+    background: #fff;
+    color: var(--mei);
+    cursor: pointer;
+    transition: transform 0.1s, background 0.15s;
+  }
+  .choice-btn:hover:not(:disabled) { background: #eefbf0; transform: translateY(-1px); }
+  .choice-btn:disabled { cursor: default; opacity: 0.7; }
+  .choice-btn.is-correct { background: var(--mei); color: #fff; opacity: 1; }
+  .choice-btn.is-wrong { background: var(--wrong); border-color: var(--wrong); color: #fff; opacity: 1; }
+
+  .primary-btn {
+    display: block;
+    width: 100%;
+    padding: 18px;
+    font-size: 18px;
+    font-weight: 900;
+    border: none;
+    border-radius: 20px;
+    background: var(--mei);
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #05730f;
+    margin-bottom: 14px;
+  }
+  .primary-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #05730f; }
+
+  .share-btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    border: 2px solid #000;
+    border-radius: 16px;
+    background: #000;
+    color: #fff;
+    cursor: pointer;
+    margin-bottom: 10px;
+  }
+  .share-btn:active { opacity: 0.8; }
+
+  .secondary-btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    border: none;
+    background: none;
+    color: #888;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+
+  .mode-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 18px;
+    margin-bottom: 14px;
+    border: none;
+    border-radius: 20px;
+    background: #f2fbf3;
+    cursor: pointer;
+    text-align: left;
+  }
+  .mode-card.featured { background: var(--mei); color: #fff; }
+  .mode-card .mode-icon { font-size: 32px; }
+  .mode-card .mode-title { font-weight: 900; font-size: 17px; }
+  .mode-card .mode-desc { font-size: 12px; opacity: 0.8; }
+
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    background: #f2fbf3;
+    border-radius: 14px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    font-size: 13px;
+  }
+  .status-bar b { display: block; font-size: 18px; color: var(--mei); }
+
+  #play-clock-wrap {
+    text-align: right;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    color: var(--mei);
+    margin-bottom: 6px;
+  }
+  #play-clock-wrap span { font-size: 22px; }
+
+  .timer-track {
+    width: 100%;
+    height: 6px;
+    background: #eee;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 18px;
+  }
+  #play-timer-bar {
+    height: 100%;
+    width: 100%;
+    background: var(--gold);
+    transition: width 0.1s linear;
+  }
+
+  .category-badge {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--mei);
+    background: #eefbf0;
+    border-radius: 10px;
+    padding: 4px 10px;
+    margin-bottom: 10px;
+    align-self: flex-start;
+  }
+
+  #play-progress {
+    font-size: 12px;
+    color: #999;
+    margin-bottom: 12px;
+  }
+
+  #play-question {
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.5;
+    margin-bottom: 20px;
+    min-height: 56px;
+  }
+
+  .feedback {
+    min-height: 44px;
+    font-size: 14px;
+    font-weight: 700;
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-top: 8px;
+  }
+  .feedback-correct { background: #eefbf0; color: var(--mei); }
+  .feedback-wrong { background: #fdecea; color: var(--wrong); }
+
+  .name-input {
+    width: 100%;
+    padding: 14px;
+    font-size: 16px;
+    border: 2px solid var(--mei);
+    border-radius: 14px;
+    margin-bottom: 16px;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+
+  #result-score {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 40px;
+    font-weight: 900;
+    color: var(--mei);
+    text-align: center;
+    margin: 8px 0;
+  }
+  #result-newbest {
+    display: none;
+    text-align: center;
+    color: var(--gold);
+    font-weight: 900;
+    margin-bottom: 10px;
+  }
+  #result-best-wrap {
+    text-align: center;
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 24px;
+  }
+
+  .encyclopedia-item {
+    border-bottom: 1px solid #eee;
+    padding: 12px 0;
+  }
+  .encyclopedia-q { font-weight: 700; margin-bottom: 4px; }
+  .encyclopedia-a { font-size: 13px; color: #555; }
+  #encyclopedia-list { flex: 1; overflow-y: auto; margin-bottom: 16px; }
+
+  .back-link {
+    background: none;
+    border: none;
+    color: var(--mei);
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 12px;
+    align-self: flex-start;
+    padding: 0;
+  }
+
+  .celebration-layer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 50;
+  }
+  .confetti-piece {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    opacity: 0;
+  }
+  .confetti-piece.burst {
+    animation-name: burstFly;
+    animation-duration: 0.7s;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1);
+    animation-fill-mode: forwards;
+  }
+  .confetti-piece.rain {
+    background: none !important;
+    animation-name: rainFall;
+    animation-timing-function: ease-in;
+    animation-fill-mode: forwards;
+  }
+  @keyframes burstFly {
+    0% { transform: translate(0, 0) scale(0.4) rotate(0deg); opacity: 1; }
+    100% { transform: translate(var(--tx), var(--ty)) scale(1) rotate(var(--rot)); opacity: 0; }
+  }
+  @keyframes rainFall {
+    0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: 1; }
+    85% { opacity: 1; }
+    100% { transform: translateY(var(--fall)) translateX(var(--sway)) rotate(var(--rot)); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- 導入クイズ（初回のみ） -->
+  <section id="screen-intro" class="screen active">
+    <img class="mascot" src="assets/Meimei.png" alt="愛生博士">
+    <h1 class="center">愛生博士クイズ</h1>
+    <p class="subtitle">まずはかんたんな2問から〜！</p>
+    <div id="intro-question" style="font-size:18px;font-weight:700;margin-bottom:16px;text-align:center;"></div>
+    <div id="intro-choices"></div>
+  </section>
+
+  <!-- 名前入力（初回のみ） -->
+  <section id="screen-name" class="screen">
+    <img class="mascot" src="assets/Meimei.png" alt="めいめい">
+    <h2 class="center">あなたのことなんて呼べばいい？</h2>
+    <p class="subtitle">これを覚えたら、もう二度と聞かないよ〜</p>
+    <input id="name-input" class="name-input" type="text" maxlength="12" placeholder="例: パンダさん">
+    <button class="primary-btn" onclick="submitName()">これでOK！</button>
+    <button class="secondary-btn" onclick="skipName()">あとで決める</button>
+  </section>
+
+  <!-- モード選択 -->
+  <section id="screen-modes" class="screen">
+    <img class="mascot" src="assets/Meimei.png" alt="愛生博士">
+    <h2 id="modes-greeting" class="center">おかえり！</h2>
+    <div class="status-bar">
+      <div>ハイスコア(タイムアタック)<b id="modes-best-timeattack">0</b></div>
+      <div>ハイスコア(エンドレス)<b id="modes-best-endless">0</b></div>
+      <div>連続プレイ<b><span id="modes-streak">0</span>日</b></div>
+    </div>
+
+    <button class="mode-card featured" onclick="startMode('timeAttack')">
+      <span class="mode-icon">⏱️</span>
+      <span>
+        <span class="mode-title">タイムアタック</span><br>
+        <span class="mode-desc">60秒でどれだけ正解できるか挑戦！まずはここから</span>
+      </span>
+    </button>
+
+    <button class="mode-card" onclick="startMode('endless')">
+      <span class="mode-icon">♾️</span>
+      <span>
+        <span class="mode-title">エンドレスモード</span><br>
+        <span class="mode-desc">間違えるまで続く。だんだん難しくなるよ</span>
+      </span>
+    </button>
+
+    <button class="mode-card" onclick="startMode('study')">
+      <span class="mode-icon">📖</span>
+      <span>
+        <span class="mode-title">学習モード</span><br>
+        <span class="mode-desc">苦手を復習。愛生ちゃん図鑑も見られる</span>
+      </span>
+    </button>
+
+    <button class="secondary-btn" onclick="openEncyclopedia()">📚 愛生ちゃん図鑑を見る</button>
+  </section>
+
+  <!-- プレイ画面 -->
+  <section id="screen-play" class="screen">
+    <div id="play-clock-wrap" style="display:none;">残り <span id="play-clock">60</span> 秒</div>
+    <div class="timer-track"><div id="play-timer-bar"></div></div>
+    <span id="play-category" class="category-badge">カテゴリ</span>
+    <div id="play-progress"></div>
+    <div id="play-question"></div>
+    <div id="play-choices"></div>
+    <div id="play-feedback" class="feedback"></div>
+  </section>
+
+  <!-- リザルト -->
+  <section id="screen-result" class="screen">
+    <img class="mascot" src="assets/Meimei.png" alt="結果発表">
+    <h2 id="result-mode-label" class="center">結果発表！</h2>
+    <div id="result-newbest">🎉 自己ベスト更新！🎉</div>
+    <div id="result-score">0</div>
+    <div id="result-best-wrap">自己ベスト：<span id="result-best">0</span></div>
+    <p class="center" style="font-size:13px;color:#888;">連続プレイ <span id="result-streak">0</span>日目</p>
+    <button class="primary-btn" onclick="playAgain()">🔁 もう1回！</button>
+    <button class="share-btn" onclick="shareToX()">🐦 Xで結果をシェア</button>
+    <button class="secondary-btn" onclick="backToModes()">モードを選び直す</button>
+  </section>
+
+  <!-- 図鑑 -->
+  <section id="screen-encyclopedia" class="screen">
+    <button class="back-link" onclick="goToModes()">← 戻る</button>
+    <h2>愛生ちゃん図鑑</h2>
+    <div id="encyclopedia-list"></div>
+  </section>
+
+</div>
+
+<script src="quiz-data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
