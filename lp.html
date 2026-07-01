@@ -80,6 +80,29 @@
   section.alt { background: #fff; }
   .section-title { text-align: center; font-size: 26px; margin-bottom: 32px; }
 
+  .source-badge { padding: 0 0 8px; }
+  .source-badge-inner {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    background: #eefbf0;
+    border: 2px solid var(--mei);
+    border-radius: 20px;
+    padding: 20px;
+  }
+  .source-icon { font-size: 34px; line-height: 1; }
+  .source-badge-inner strong {
+    display: block;
+    font-size: 17px;
+    color: var(--mei);
+    margin-bottom: 6px;
+  }
+  .source-badge-inner p {
+    margin: 0;
+    font-size: 15px;
+    color: #555;
+  }
+
   .mode-grid { display: flex; flex-direction: column; gap: 16px; }
   .mode-card {
     display: flex;
@@ -199,6 +222,18 @@
   </div>
 </section>
 
+<section class="source-badge">
+  <div class="wrap">
+    <div class="source-badge-inner">
+      <span class="source-icon">📚</span>
+      <div>
+        <strong>問題はすべて、愛生ちゃんのブログ記事から出題しています</strong>
+        <p>2019年の1回目から最新記事まで、山﨑愛生ちゃんのブログを全記事読み込んだ上で作成しました。でっちあげは一切なし、すべて実在する記述がもとになっています。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="alt">
   <div class="wrap">
     <h2 class="section-title">3つのモードで遊べる</h2>
@@ -242,6 +277,7 @@
     </ul>
     <div class="quote-box">
       「いつか私もクイズになりたい！！」— 愛生ちゃんの言葉が、本当にクイズになりました🐼
+      <div style="font-size:12px;color:#999;margin-top:8px;">※ブログNo.2097（2025-09-17）より</div>
     </div>
   </div>
 </section>
