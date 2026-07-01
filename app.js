@@ -394,39 +394,60 @@ function endSession() {
 
 // ==================== 自己ベスト更新エフェクト（パン・パン・シャラララ〜ん） ====================
 const CONFETTI_COLORS = ['#079C15', '#00C853', '#FFC107', '#FF6F91', '#42A5F5'];
-const RAIN_SPARKLES = ['✨', '🌟', '💫'];
+const RAIN_SPARKLES = ['🐼', '🎓', '✏️', '📝', '✨'];
+const BURST_SWEETS = ['🍫', '🍬', '🍭', '🍪']; // めいちゃんの好物（チョコ・クッキー・ラムネ系のお菓子）
+
+function applyBurstTrajectory(p, originX, originY, fromLeft, delay) {
+  const spread = (Math.random() * 70 - 35);
+  const angle = (fromLeft ? -55 + spread : -125 + spread) * (Math.PI / 180);
+  const dist = 90 + Math.random() * 130;
+  p.style.left = originX + 'px';
+  p.style.top = originY + 'px';
+  p.style.setProperty('--tx', (Math.cos(angle) * dist) + 'px');
+  p.style.setProperty('--ty', (Math.sin(angle) * dist) + 'px');
+  p.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+  p.style.animationDelay = delay + 'ms';
+}
 
 function spawnBurst(layer, originX, originY, fromLeft, delay) {
-  for (let i = 0; i < 14; i++) {
+  const SWEET_COUNT = 6;
+  const CONFETTI_COUNT = 30;
+
+  for (let i = 0; i < SWEET_COUNT; i++) {
     const p = document.createElement('div');
     p.className = 'confetti-piece burst';
-    const spread = (Math.random() * 70 - 35);
-    const angle = (fromLeft ? -55 + spread : -125 + spread) * (Math.PI / 180);
-    const dist = 70 + Math.random() * 90;
-    p.style.left = originX + 'px';
-    p.style.top = originY + 'px';
+    p.textContent = BURST_SWEETS[Math.floor(Math.random() * BURST_SWEETS.length)];
+    p.style.fontSize = (18 + Math.random() * 8) + 'px'; // お菓子は今のサイズのまま
+    applyBurstTrajectory(p, originX, originY, fromLeft, delay);
+    layer.appendChild(p);
+  }
+
+  for (let i = 0; i < CONFETTI_COUNT; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece burst';
+    const size = 6 + Math.random() * 6; // 紙吹雪らしい小ささに縮小、数を増やす
+    p.style.width = size + 'px';
+    p.style.height = size + 'px';
     p.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
-    p.style.setProperty('--tx', (Math.cos(angle) * dist) + 'px');
-    p.style.setProperty('--ty', (Math.sin(angle) * dist) + 'px');
-    p.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
-    p.style.animationDelay = delay + 'ms';
+    applyBurstTrajectory(p, originX, originY, fromLeft, delay);
     layer.appendChild(p);
   }
 }
 
 function spawnRain(layer, width, startY, rangeHeight) {
+  const CELEBRATE_COUNT = 3; // 「㊗️」は少量だけ混ぜる
   for (let i = 0; i < 26; i++) {
     const p = document.createElement('div');
     p.className = 'confetti-piece rain';
-    p.textContent = RAIN_SPARKLES[Math.floor(Math.random() * RAIN_SPARKLES.length)];
+    p.textContent = i < CELEBRATE_COUNT ? '㊗️' : RAIN_SPARKLES[Math.floor(Math.random() * RAIN_SPARKLES.length)];
     p.style.left = (Math.random() * width) + 'px';
     p.style.top = startY + 'px';
-    p.style.fontSize = (12 + Math.random() * 10) + 'px';
+    p.style.fontSize = (20 + Math.random() * 18) + 'px'; // 通常の約1.5〜2倍サイズ
     p.style.setProperty('--fall', (rangeHeight * (0.5 + Math.random() * 0.5)) + 'px');
     p.style.setProperty('--sway', (Math.random() * 60 - 30) + 'px');
     p.style.setProperty('--rot', (Math.random() * 360) + 'deg');
     p.style.animationDuration = (1300 + Math.random() * 900) + 'ms';
-    p.style.animationDelay = (280 + Math.random() * 650) + 'ms';
+    p.style.animationDelay = (550 + Math.random() * 600) + 'ms'; // 2回目のパンが終わった後に降り始める
     layer.appendChild(p);
   }
 }
@@ -436,15 +457,20 @@ function celebrate() {
   const resultScreen = document.getElementById('screen-result');
   const mascotEl = resultScreen.querySelector('.mascot');
   const shareBtn = resultScreen.querySelector('.share-btn');
+  const newBestEl = resultScreen.querySelector('#result-newbest');
 
   const appRect = app.getBoundingClientRect();
   const mascotRect = mascotEl.getBoundingClientRect();
   const shareRect = shareBtn.getBoundingClientRect();
+  const newBestRect = newBestEl.getBoundingClientRect();
 
   // メイメイの画像〜Xシェアボタンの表示範囲（#app基準の相対座標）に収める
   const contentTop = mascotRect.top - appRect.top;
   const contentBottom = shareRect.bottom - appRect.top;
   const rangeHeight = contentBottom - contentTop;
+
+  // クラッカーは「自己ベスト更新」バッジの高さから発生させる
+  const burstY = (newBestRect.top + newBestRect.height / 2) - appRect.top;
 
   const layer = document.createElement('div');
   layer.className = 'celebration-layer';
@@ -452,11 +478,11 @@ function celebrate() {
 
   const w = app.clientWidth;
 
-  spawnBurst(layer, 16, contentBottom, true, 0);       // パン（左から）
-  spawnBurst(layer, w - 16, contentBottom, false, 150); // パン（右から、少し遅れて）
-  spawnRain(layer, w, contentTop, rangeHeight);          // シャラララ〜ん（表示範囲内でキラキラ）
+  spawnBurst(layer, 16, burstY, true, 0);       // パン（左から・1拍目）
+  spawnBurst(layer, w - 16, burstY, false, 400); // パン（右から・3拍目のイメージでテンポよく）
+  spawnRain(layer, w, contentTop, rangeHeight);   // しゃらら〜ん（2発のパンが終わった後にキラキラ）
 
-  setTimeout(() => layer.remove(), 2700);
+  setTimeout(() => layer.remove(), 3500);
 }
 
 let currentSessionMode = null;
