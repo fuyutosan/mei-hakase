@@ -170,9 +170,15 @@ function weightedPoolForTimeAttack() {
   return [...easyPicks, ...hardPicks].sort(() => Math.random() - 0.5);
 }
 
-function endlessQueueForDifficulty(level) {
-  const pool = QUIZ_DATA.filter(q => q.difficulty === Math.min(level, 4));
-  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : QUIZ_DATA[Math.floor(Math.random() * QUIZ_DATA.length)];
+function endlessQueueForDifficulty(level, excludeIds) {
+  const targetDifficulty = Math.min(level, 4);
+  // 最高難度(文体5問)は母数が小さくすぐ一周してしまうので、語録も合わせて母数を増やす
+  const basePool = targetDifficulty >= 4
+    ? QUIZ_DATA.filter(q => q.difficulty >= 3)
+    : QUIZ_DATA.filter(q => q.difficulty === targetDifficulty);
+  const fresh = basePool.filter(q => !excludeIds.includes(q.id));
+  const pool = fresh.length ? fresh : basePool; // 出し切ったら除外をリセットして再度回す
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function reviewPool() {
@@ -190,6 +196,7 @@ function startMode(mode) {
     correctCount: 0,
     answeredCount: 0,
     endlessLevel: 1,
+    recentIds: [],
     questions: [],
     timerHandle: null,
     clockHandle: null,
@@ -201,7 +208,8 @@ function startMode(mode) {
     document.getElementById('play-clock-wrap').style.display = 'block';
     startOverallClock();
   } else if (mode === 'endless') {
-    session.questions = [endlessQueueForDifficulty(1)];
+    session.questions = [endlessQueueForDifficulty(1, session.recentIds)];
+    session.recentIds.push(session.questions[0].id);
     document.getElementById('play-clock-wrap').style.display = 'none';
   } else if (mode === 'study') {
     session.questions = reviewPool();
@@ -254,12 +262,13 @@ function renderQuestion() {
     : `${session.index + 1} / ${session.questions.length}問`;
   document.getElementById('play-progress').textContent = progressText;
 
+  session.shuffledChoices = shuffleChoices(q);
   const box = document.getElementById('play-choices');
   box.innerHTML = '';
-  q.choices.forEach((choice, i) => {
+  session.shuffledChoices.forEach((choice, i) => {
     const btn = document.createElement('button');
     btn.className = 'choice-btn';
-    btn.textContent = choice;
+    btn.textContent = choice.text;
     btn.onclick = () => answerQuestion(i);
     box.appendChild(btn);
   });
@@ -267,6 +276,15 @@ function renderQuestion() {
   if (session.mode !== 'study') {
     startQuestionTimer();
   }
+}
+
+function shuffleChoices(q) {
+  const pairs = q.choices.map((text, i) => ({ text, isCorrect: i === q.answerIndex }));
+  for (let i = pairs.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pairs[i], pairs[j]] = [pairs[j], pairs[i]];
+  }
+  return pairs;
 }
 
 function categoryLabel(cat) {
@@ -300,7 +318,7 @@ function answerQuestion(choiceIndex) {
   session.locked = true;
   clearQuestionTimer();
   const q = currentQuestion();
-  const correct = choiceIndex === q.answerIndex;
+  const correct = choiceIndex >= 0 && !!session.shuffledChoices[choiceIndex] && session.shuffledChoices[choiceIndex].isCorrect;
 
   session.answeredCount++;
   if (correct) session.correctCount++;
@@ -313,7 +331,7 @@ function answerQuestion(choiceIndex) {
 
   document.querySelectorAll('#play-choices .choice-btn').forEach((btn, i) => {
     btn.disabled = true;
-    if (i === q.answerIndex) btn.classList.add('is-correct');
+    if (session.shuffledChoices[i].isCorrect) btn.classList.add('is-correct');
     if (i === choiceIndex && !correct) btn.classList.add('is-wrong');
   });
 
@@ -364,7 +382,9 @@ function advance(lastWasCorrect) {
       return;
     }
     session.endlessLevel = 1 + Math.floor(session.correctCount / 3);
-    session.questions = [endlessQueueForDifficulty(session.endlessLevel)];
+    session.questions = [endlessQueueForDifficulty(session.endlessLevel, session.recentIds)];
+    session.recentIds.push(session.questions[0].id);
+    if (session.recentIds.length > 10) session.recentIds.shift(); // 直近10問だけ覚えておけば十分
     renderQuestion();
   } else if (session.mode === 'study') {
     session.index++;
