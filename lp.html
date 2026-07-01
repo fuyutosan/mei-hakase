@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>愛生博士クイズ 🐼 — 山﨑愛生ちゃんについて何問正解できる？</title>
+<meta name="description" content="山﨑愛生ちゃん(モーニング娘。'26)のクイズに挑戦！タイムアタック・エンドレス・学習モードの3つで遊べる、登録不要・完全無料のブラウザクイズです。">
+<meta property="og:title" content="愛生博士クイズ 🐼">
+<meta property="og:description" content="山﨑愛生ちゃんについて、あなたは何問正解できる？登録不要・完全無料のブラウザクイズ。">
+<meta property="og:image" content="assets/ogp.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="assets/ogp.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --mei: #079C15;
+    --mei-light: #00C853;
+    --paper: #FAFAF5;
+    --ink: #2a2a2a;
+    --gold: #FFC107;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 18px;
+    line-height: 1.7;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 0 20px; }
+
+  h1, h2 {
+    font-family: 'Orbitron', 'Noto Sans JP', sans-serif;
+    color: var(--mei);
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    margin: 0 0 12px;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    background: linear-gradient(180deg, #eefbf0 0%, var(--paper) 100%);
+    text-align: center;
+    padding: 48px 0 40px;
+  }
+  .hero-mascot {
+    width: 160px;
+    height: 160px;
+    object-fit: contain;
+    margin: 0 auto 8px;
+    display: block;
+  }
+  .hero h1 { font-size: 34px; margin-bottom: 14px; }
+  .hero p.lead {
+    font-size: 18px;
+    color: #444;
+    margin: 0 auto 28px;
+    max-width: 440px;
+  }
+  .cta-btn {
+    display: inline-block;
+    padding: 20px 40px;
+    font-size: 21px;
+    font-weight: 900;
+    font-family: 'Noto Sans JP', sans-serif;
+    text-decoration: none;
+    color: #fff;
+    background: var(--mei);
+    border-radius: 24px;
+    box-shadow: 0 6px 0 #05730f;
+  }
+  .cta-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #05730f; }
+  .cta-sub { margin-top: 12px; font-size: 14px; color: #888; }
+
+  /* ---------- Sections ---------- */
+  section { padding: 40px 0; }
+  section.alt { background: #fff; }
+  .section-title { text-align: center; font-size: 26px; margin-bottom: 32px; }
+
+  .mode-grid { display: flex; flex-direction: column; gap: 16px; }
+  .mode-card {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    background: #f2fbf3;
+    border-radius: 20px;
+    padding: 20px;
+  }
+  .mode-card .icon { font-size: 40px; line-height: 1; }
+  .mode-card h3 { margin: 0 0 6px; font-size: 19px; color: var(--ink); font-family: 'Noto Sans JP', sans-serif; font-weight: 900; }
+  .mode-card p { margin: 0; font-size: 16px; color: #555; }
+  .mode-card .tag {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--mei);
+    background: #fff;
+    border-radius: 8px;
+    padding: 2px 8px;
+    margin-bottom: 6px;
+  }
+
+  .feature-list { list-style: none; padding: 0; margin: 0; }
+  .feature-list li {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 14px 0;
+    border-bottom: 1px solid #eee;
+    font-size: 17px;
+  }
+  .feature-list li:last-child { border-bottom: none; }
+  .feature-list .check { color: var(--mei); font-weight: 900; font-size: 20px; }
+
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 0; }
+  .steps li {
+    counter-increment: step;
+    position: relative;
+    padding: 8px 0 8px 46px;
+    margin-bottom: 8px;
+    font-size: 17px;
+  }
+  .steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 4px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--mei);
+    color: #fff;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .screenshot-gallery {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .screenshot-gallery figure {
+    flex: 0 0 auto;
+    width: 220px;
+    margin: 0;
+    text-align: center;
+  }
+  .screenshot-gallery img {
+    width: 100%;
+    border-radius: 16px;
+    border: 1px solid #eee;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+    display: block;
+  }
+  .screenshot-gallery figcaption {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #666;
+  }
+
+  .quote-box {
+    background: #fff9e6;
+    border-left: 4px solid var(--gold);
+    border-radius: 12px;
+    padding: 16px 20px;
+    font-size: 16px;
+    color: #555;
+    margin: 24px 0;
+  }
+
+  footer {
+    text-align: center;
+    padding: 40px 0 56px;
+  }
+  footer p { font-size: 13px; color: #999; margin-top: 24px; }
+
+  @media (max-width: 400px) {
+    .hero h1 { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="wrap">
+    <img class="hero-mascot" src="assets/Meimei.png" alt="愛生博士">
+    <h1>愛生博士クイズ 🐼</h1>
+    <p class="lead">山﨑愛生ちゃん（モーニング娘。'26）について、<br>あなたは何問正解できる？<br>登録不要・完全無料のブラウザクイズです。</p>
+    <a class="cta-btn" href="index.html">今すぐ挑戦する →</a>
+    <p class="cta-sub">スマホでもPCでもすぐ遊べます</p>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <h2 class="section-title">3つのモードで遊べる</h2>
+    <div class="mode-grid">
+      <div class="mode-card">
+        <div class="icon">⏱️</div>
+        <div>
+          <span class="tag">まずはここから</span>
+          <h3>タイムアタック</h3>
+          <p>60秒でどれだけ正解できるか勝負。かんたんな問題から始まるので、初めてでも安心。</p>
+        </div>
+      </div>
+      <div class="mode-card">
+        <div class="icon">♾️</div>
+        <div>
+          <span class="tag">やり込み派に</span>
+          <h3>エンドレスモード</h3>
+          <p>間違えるまで無限に続く。正解するたびにじわじわ難易度が上がっていく、ハイスコア狙いのモード。</p>
+        </div>
+      </div>
+      <div class="mode-card">
+        <div class="icon">📖</div>
+        <div>
+          <span class="tag">じっくり派に</span>
+          <h3>学習モード</h3>
+          <p>間違えた問題を優先的に復習。愛生ちゃん図鑑で豆知識をじっくり眺めることもできる。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2 class="section-title">こんなクイズです</h2>
+    <ul class="feature-list">
+      <li><span class="check">✓</span>プロフィール・年表・語録・文体の4カテゴリ、60問以上を実際のブログから作成</li>
+      <li><span class="check">✓</span>自己ベストを更新すると、パン・パン・しゃらら〜んの演出でお祝い</li>
+      <li><span class="check">✓</span>間違えても責めない、愛生ちゃん口調のやさしい解説つき</li>
+      <li><span class="check">✓</span>アカウント登録・課金は一切なし。ブラウザですぐ遊べる</li>
+    </ul>
+    <div class="quote-box">
+      「いつか私もクイズになりたい！！」— 愛生ちゃんの言葉が、本当にクイズになりました🐼
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2 class="section-title">実際の画面はこんな感じ</h2>
+    <div class="screenshot-gallery">
+      <figure>
+        <img src="assets/screenshot-play.png" alt="クイズ画面のスクリーンショット" loading="lazy">
+        <figcaption>テンポよく1問ずつ出題</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/screenshot-celebrate.png" alt="自己ベスト更新演出のスクリーンショット" loading="lazy">
+        <figcaption>自己ベスト更新でお祝い演出🎉</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/screenshot-result.png" alt="結果画面のスクリーンショット" loading="lazy">
+        <figcaption>結果はそのままXでシェアできる</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <h2 class="section-title">遊び方はかんたん</h2>
+    <ol class="steps">
+      <li>絶対に正解できる、かんたんな2問に答える</li>
+      <li>好きなモードを選ぶ（迷ったらタイムアタックから）</li>
+      <li>スコアを更新して、よかったらXでシェア</li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <div class="wrap" style="text-align:center;">
+    <h2 class="section-title">あなたは愛生博士になれるか？</h2>
+    <a class="cta-btn" href="index.html">クイズを始める →</a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>本サイトは非公式のファンコンテンツです。<br>山﨑愛生ちゃん・モーニング娘。'26を応援する気持ちで作っています🐼</p>
+  </div>
+</footer>
+
+</body>
+</html>
