@@ -114,12 +114,43 @@ function skipName() {
   goToModes();
 }
 
+// ==================== ランク（累計正解数で愛生博士に近づく） ====================
+const RANKS = [
+  { min: 0, title: '愛生博士見習い' },
+  { min: 10, title: '愛生ファン' },
+  { min: 25, title: '愛生マニア' },
+  { min: 50, title: '愛生博士候補' },
+  { min: 100, title: '愛生博士🎓' }
+];
+
+function getRank(totalCorrect) {
+  let current = RANKS[0];
+  let next = null;
+  for (const rank of RANKS) {
+    if (totalCorrect >= rank.min) current = rank;
+    else { next = rank; break; }
+  }
+  return { current, next };
+}
+
+function renderRank(titleElId, progressElId) {
+  const { current, next } = getRank(save.totalStats.totalCorrect);
+  document.getElementById(titleElId).textContent = current.title;
+  if (progressElId) {
+    const progressEl = document.getElementById(progressElId);
+    progressEl.textContent = next
+      ? `あと${next.min - save.totalStats.totalCorrect}問正解で「${next.title}」へ`
+      : '最高ランクに到達！';
+  }
+}
+
 // ==================== モード選択画面 ====================
 function goToModes() {
   document.getElementById('modes-greeting').textContent = `おかえり、${save.nickname}！`;
   document.getElementById('modes-best-timeattack').textContent = save.highScores.timeAttack;
   document.getElementById('modes-best-endless').textContent = save.highScores.endless;
   document.getElementById('modes-streak').textContent = save.streak.count;
+  renderRank('modes-rank', 'modes-rank-progress');
   showScreen('screen-modes');
 }
 
@@ -383,6 +414,7 @@ function endSession() {
   }
   document.getElementById('result-newbest').style.display = isNewBest ? 'block' : 'none';
   document.getElementById('result-streak').textContent = save.streak.count;
+  document.getElementById('result-rank').textContent = `現在のランク：${getRank(save.totalStats.totalCorrect).current.title}`;
 
   lastResult = { mode: session.mode, score, answeredCount: session.answeredCount, isNewBest };
 
