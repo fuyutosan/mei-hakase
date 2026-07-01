@@ -29,7 +29,8 @@ function defaultSave() {
     streak: { count: 0, lastPlayedDate: null },
     highScores: { timeAttack: 0, endless: 0 },
     wrongQuestions: {},
-    totalStats: { totalAnswered: 0, totalCorrect: 0 }
+    totalStats: { totalAnswered: 0, totalCorrect: 0 },
+    daily: null
   };
 }
 
@@ -151,7 +152,24 @@ function goToModes() {
   document.getElementById('modes-best-endless').textContent = save.highScores.endless;
   document.getElementById('modes-streak').textContent = save.streak.count;
   renderRank('modes-rank', 'modes-rank-progress');
+  renderDailyCard();
   showScreen('screen-modes');
+}
+
+function renderDailyCard() {
+  const btn = document.getElementById('daily-card');
+  const desc = document.getElementById('daily-desc');
+  if (dailyDoneToday()) {
+    btn.disabled = true;
+    btn.classList.add('daily-done');
+    desc.textContent = save.daily.correct
+      ? '今日は正解済み！また明日ね🐼'
+      : '挑戦済み！また明日リベンジしてね🐼';
+  } else {
+    btn.disabled = false;
+    btn.classList.remove('daily-done');
+    desc.textContent = '毎日変わる1問に挑戦。みんな同じ問題だよ';
+  }
 }
 
 // ==================== クイズ本体 ====================
@@ -163,11 +181,31 @@ function pickQuestions(pool, count) {
 }
 
 function weightedPoolForTimeAttack() {
-  const easy = QUIZ_DATA.filter(q => q.difficulty <= 2);
+  // 最初の3問は必ず易問（プロフィール）＝最初の成功体験を保証する設計
+  const easiest = QUIZ_DATA.filter(q => q.difficulty === 1);
+  const opener = pickQuestions(easiest, 3);
+  const openerIds = opener.map(q => q.id);
+  const mid = QUIZ_DATA.filter(q => q.difficulty <= 2 && !openerIds.includes(q.id));
   const hard = QUIZ_DATA.filter(q => q.difficulty >= 3);
-  const easyPicks = pickQuestions(easy, 8);
-  const hardPicks = pickQuestions(hard, 2);
-  return [...easyPicks, ...hardPicks].sort(() => Math.random() - 0.5);
+  const rest = [...pickQuestions(mid, 5), ...pickQuestions(hard, 2)].sort(() => Math.random() - 0.5);
+  return [...opener, ...rest];
+}
+
+// ==================== 今日の1問（日替わり・全員同じ問題） ====================
+function localDateString() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function dailyQuestion() {
+  const today = localDateString();
+  let h = 0;
+  for (const ch of today) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return QUIZ_DATA[h % QUIZ_DATA.length];
+}
+
+function dailyDoneToday() {
+  return save.daily && save.daily.date === localDateString();
 }
 
 function endlessQueueForDifficulty(level, excludeIds) {
@@ -213,6 +251,9 @@ function startMode(mode) {
     document.getElementById('play-clock-wrap').style.display = 'none';
   } else if (mode === 'study') {
     session.questions = reviewPool();
+    document.getElementById('play-clock-wrap').style.display = 'none';
+  } else if (mode === 'daily') {
+    session.questions = [dailyQuestion()];
     document.getElementById('play-clock-wrap').style.display = 'none';
   }
 
@@ -393,6 +434,8 @@ function advance(lastWasCorrect) {
     } else {
       renderQuestion();
     }
+  } else if (session.mode === 'daily') {
+    endSession(); // 1問だけで終了
   }
 }
 
@@ -411,6 +454,12 @@ function endSession() {
     score = session.correctCount;
     bestKey = 'endless';
     label = 'エンドレス';
+  } else if (session.mode === 'daily') {
+    score = session.correctCount;
+    bestKey = null;
+    label = '今日の1問';
+    save.daily = { date: localDateString(), correct: session.correctCount > 0 };
+    writeSave(save);
   } else {
     score = session.correctCount;
     bestKey = null;
@@ -549,6 +598,11 @@ function buildShareText(result) {
   if (result.mode === 'endless') {
     return `${bonus}愛生博士クイズのエンドレスモードで${result.score}問連続正解🐼✨\nこの記録、超えられる？\n#愛生博士クイズ #山﨑愛生`;
   }
+  if (result.mode === 'daily') {
+    return result.score > 0
+      ? `愛生博士クイズ「今日の1問」正解しました🎓🐼\n今日の問題、あなたは解ける？\n#愛生博士クイズ #山﨑愛生`
+      : `愛生博士クイズ「今日の1問」むずかしかった…😵🐼\n今日の問題、あなたは解ける？\n#愛生博士クイズ #山﨑愛生`;
+  }
   return `愛生博士クイズの学習モードで${result.score}問復習しました📖🐼\n愛生ちゃん博士に一歩近づいたかも\n#愛生博士クイズ #山﨑愛生`;
 }
 
@@ -561,6 +615,11 @@ function shareToX() {
 }
 
 function playAgain() {
+  if (currentSessionMode === 'daily') {
+    // 今日の1問は1日1回。「もう1回」はモード選択に戻す
+    goToModes();
+    return;
+  }
   startMode(currentSessionMode);
 }
 
