@@ -30,7 +30,8 @@ function defaultSave() {
     highScores: { timeAttack: 0, endless: 0 },
     wrongQuestions: {},
     totalStats: { totalAnswered: 0, totalCorrect: 0 },
-    daily: null
+    daily: null,
+    badges: {}
   };
 }
 
@@ -40,6 +41,8 @@ function loadSave() {
     if (!raw) return defaultSave();
     const parsed = JSON.parse(raw);
     if (!parsed || parsed.version !== 1) return defaultSave();
+    // 古いセーブにフィールドが無い場合の防御的ガード
+    parsed.badges = parsed.badges || {};
     return parsed;
   } catch (e) {
     return defaultSave();
@@ -134,6 +137,72 @@ function getRank(totalCorrect) {
   return { current, next };
 }
 
+// ==================== R2: パンダさんバッジコレクション ====================
+const CORRECT_BADGES = [
+  { id: 'correct_010', min: 10, emoji: '🐼', name: 'どさんこパンダさんバッジ' },
+  { id: 'correct_025', min: 25, emoji: '⚡', name: 'ウルトラパンダさんバッジ' },
+  { id: 'correct_050', min: 50, emoji: '✨', name: 'スペシャルパンダさんバッジ' },
+  { id: 'correct_100', min: 100, emoji: '🎀', name: 'パンダコさんバッジ' },
+  { id: 'correct_200', min: 200, emoji: '🥳', name: 'ハッピーパンダさんバッジ' },
+  { id: 'correct_365', min: 365, emoji: '🎊', name: '楽しい思い出パンパンパンダさんバッジ' }
+];
+
+const STREAK_BADGES = [
+  { id: 'streak_003', min: 3, emoji: '🐼', name: '3日連続パンダさん' },
+  { id: 'streak_007', min: 7, emoji: '🐼', name: '7日連続パンダさん' },
+  { id: 'streak_014', min: 14, emoji: '🐼', name: '14日連続パンダさん' },
+  { id: 'streak_030', min: 30, emoji: '🐼', name: '30日連続パンダさん' },
+  { id: 'streak_050', min: 50, emoji: '🐼', name: '50日連続パンダさん' },
+  { id: 'streak_100', min: 100, emoji: '🐼', name: '100日連続パンダさん' }
+];
+
+// 現在のセーブ状態から、まだ解放されていないが条件を満たしたバッジを解放し、新規解放分を返す
+function evaluateNewBadges() {
+  const newlyUnlocked = [];
+  const today = localDateString();
+
+  CORRECT_BADGES.forEach(b => {
+    if (!save.badges[b.id] && save.totalStats.totalCorrect >= b.min) {
+      save.badges[b.id] = today;
+      newlyUnlocked.push(b);
+    }
+  });
+
+  STREAK_BADGES.forEach(b => {
+    if (!save.badges[b.id] && save.streak.count >= b.min) {
+      save.badges[b.id] = today;
+      newlyUnlocked.push(b);
+    }
+  });
+
+  if (newlyUnlocked.length) writeSave(save);
+  return newlyUnlocked;
+}
+
+// ==================== S1: 博士度診断（timeAttack/endless共通） ====================
+const DIAGNOSIS_TITLES = [
+  { max: 19, title: 'パンダさん見習い🐼', comment: 'だいじょうぶ、パンダさんも最初は笹の見分けがつかなかったんだよ〜。一緒に博士を目指そうね！' },
+  { max: 39, title: '愛生ちゃんのおともだち', comment: 'へへへ、いい線いってるよ〜！ブログを読んだらもっと仲良くなれるかも！' },
+  { max: 59, title: 'パンダさん研究員🔬', comment: 'なかなかやるね〜！パンダさんパワー感じるよ！' },
+  { max: 79, title: '愛生博士候補生📝', comment: 'すごーい！博士まであとちょっとだよ〜！' },
+  { max: 99, title: 'りっぱな愛生博士🎓', comment: 'と〜っても すごい！愛生博士の皆さんの仲間入りだね！' },
+  { max: 100, title: 'ウルトラ愛生博士パワーMAX🎓🐼', comment: 'パーフェクト！！ウルトラスペシャルどさんこパンダさんパワーMAXだよ〜！！' }
+];
+
+function getDiagnosis(mode, score) {
+  let percent;
+  if (mode === 'timeAttack') {
+    percent = Math.round(score / TIME_ATTACK_QUESTIONS * 100);
+  } else if (mode === 'endless') {
+    percent = Math.min(100, score * 10);
+  } else {
+    return null;
+  }
+  percent = Math.max(0, Math.min(100, percent));
+  const entry = DIAGNOSIS_TITLES.find(d => percent <= d.max) || DIAGNOSIS_TITLES[DIAGNOSIS_TITLES.length - 1];
+  return { percent, title: entry.title, comment: entry.comment };
+}
+
 function renderRank(titleElId, progressElId) {
   const { current, next } = getRank(save.totalStats.totalCorrect);
   document.getElementById(titleElId).textContent = current.title;
@@ -162,13 +231,18 @@ function renderDailyCard() {
   if (dailyDoneToday()) {
     btn.disabled = true;
     btn.classList.add('daily-done');
-    desc.textContent = save.daily.correct
-      ? '今日は正解済み！また明日ね🐼'
-      : '挑戦済み！また明日リベンジしてね🐼';
+    const results = normalizeDailyResults(save.daily);
+    if (results.length >= 3) {
+      const correctCount = results.filter(Boolean).length;
+      desc.textContent = `今日は${correctCount}/3だったよ！また明日ね🐼`;
+    } else {
+      // 旧形式データ（1問時代）の名残。詳細不明のため汎用文言でフォールバック
+      desc.textContent = '挑戦済み！また明日リベンジしてね🐼';
+    }
   } else {
     btn.disabled = false;
     btn.classList.remove('daily-done');
-    desc.textContent = '毎日変わる1問に挑戦。みんな同じ問題だよ';
+    desc.textContent = '毎日変わる3問に挑戦。みんな同じ問題だよ';
   }
 }
 
@@ -197,15 +271,71 @@ function localDateString() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function dailyQuestion() {
-  const today = localDateString();
+// 日付文字列から決定的な種を作る（同じ日は誰がやっても同じ値になる）
+function dateSeed(dateStr) {
   let h = 0;
-  for (const ch of today) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return QUIZ_DATA[h % QUIZ_DATA.length];
+  for (const ch of dateStr) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return h >>> 0;
+}
+
+// mulberry32: シード値から決定的な擬似乱数列を作る軽量PRNG
+function mulberry32(seed) {
+  let a = seed;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// 通算日番号（2026-07-01を第1日目とする）
+function dailyDayNumber() {
+  const epoch = new Date(2026, 6, 1); // 月は0始まりなので7月=6
+  const today = new Date();
+  const todayMid = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const diffDays = Math.round((todayMid - epoch) / 86400000);
+  return diffDays + 1;
+}
+
+// 今日の3問：難易度ミックス（1-2から1問／2-3から1問／3以上から1問）を重複なしで選ぶ
+function dailyQuestions() {
+  const today = localDateString();
+  const rand = mulberry32(dateSeed(today));
+  const pickOne = (pool, excludeIds) => {
+    const candidates = pool.filter(q => !excludeIds.includes(q.id));
+    const usable = candidates.length ? candidates : pool;
+    const idx = Math.floor(rand() * usable.length);
+    return usable[idx];
+  };
+
+  const bandLow = QUIZ_DATA.filter(q => q.difficulty >= 1 && q.difficulty <= 2);
+  const bandMid = QUIZ_DATA.filter(q => q.difficulty >= 2 && q.difficulty <= 3);
+  const bandHigh = QUIZ_DATA.filter(q => q.difficulty >= 3);
+
+  const picked = [];
+  const q1 = pickOne(bandLow, []);
+  picked.push(q1);
+  const q2 = pickOne(bandMid, picked.map(q => q.id));
+  picked.push(q2);
+  const q3 = pickOne(bandHigh, picked.map(q => q.id));
+  picked.push(q3);
+
+  return picked;
 }
 
 function dailyDoneToday() {
-  return save.daily && save.daily.date === localDateString();
+  if (!save.daily || save.daily.date !== localDateString()) return false;
+  // 旧形式 { date, correct } が残っている場合も「プレイ済み」として扱う（後方互換ガード）
+  return true;
+}
+
+// save.daily が旧形式 { date, correct } の場合に results 配列へ正規化する
+function normalizeDailyResults(daily) {
+  if (!daily) return null;
+  if (Array.isArray(daily.results)) return daily.results;
+  if (typeof daily.correct === 'boolean') return [daily.correct]; // 旧形式の名残
+  return [];
 }
 
 function endlessQueueForDifficulty(level, excludeIds) {
@@ -253,7 +383,8 @@ function startMode(mode) {
     session.questions = reviewPool();
     document.getElementById('play-clock-wrap').style.display = 'none';
   } else if (mode === 'daily') {
-    session.questions = [dailyQuestion()];
+    session.questions = dailyQuestions();
+    session.dailyResults = [];
     document.getElementById('play-clock-wrap').style.display = 'none';
   }
 
@@ -363,6 +494,7 @@ function answerQuestion(choiceIndex) {
 
   session.answeredCount++;
   if (correct) session.correctCount++;
+  if (session.mode === 'daily') session.dailyResults.push(correct);
 
   recordAnswerResult(q, correct);
 
@@ -435,7 +567,12 @@ function advance(lastWasCorrect) {
       renderQuestion();
     }
   } else if (session.mode === 'daily') {
-    endSession(); // 1問だけで終了
+    session.index++;
+    if (session.index >= session.questions.length) {
+      endSession();
+    } else {
+      renderQuestion();
+    }
   }
 }
 
@@ -443,7 +580,7 @@ function endSession() {
   clearQuestionTimer();
   if (session.clockHandle) clearInterval(session.clockHandle);
 
-  updateStreakOnPlay();
+  const reachedMilestone = updateStreakOnPlay();
 
   let score, bestKey, label;
   if (session.mode === 'timeAttack') {
@@ -457,8 +594,8 @@ function endSession() {
   } else if (session.mode === 'daily') {
     score = session.correctCount;
     bestKey = null;
-    label = '今日の1問';
-    save.daily = { date: localDateString(), correct: session.correctCount > 0 };
+    label = '今日の3問';
+    save.daily = { date: localDateString(), results: session.dailyResults.slice() };
     writeSave(save);
   } else {
     score = session.correctCount;
@@ -485,12 +622,75 @@ function endSession() {
   document.getElementById('result-streak').textContent = save.streak.count;
   document.getElementById('result-rank').textContent = `現在のランク：${getRank(save.totalStats.totalCorrect).current.title}`;
 
-  lastResult = { mode: session.mode, score, answeredCount: session.answeredCount, isNewBest };
+  // S1: 博士度診断メーター（timeAttack/endlessのみ）
+  const diagnosisEl = document.getElementById('result-diagnosis');
+  const dailyGridEl = document.getElementById('result-daily-grid');
+  let diagnosis = null;
+  if (session.mode === 'timeAttack' || session.mode === 'endless') {
+    diagnosis = getDiagnosis(session.mode, score);
+    document.getElementById('result-diagnosis-title').textContent = diagnosis.title;
+    document.getElementById('result-diagnosis-comment').textContent = diagnosis.comment;
+    document.getElementById('result-diagnosis-percent').textContent = `博士度 ${diagnosis.percent}%`;
+    const bar = document.getElementById('result-meter-bar');
+    bar.classList.toggle('is-max', diagnosis.percent >= 100);
+    bar.style.width = '0%';
+    // アニメーションでバーが伸びるよう、描画後に幅を反映する
+    // （バックグラウンドタブ等でrequestAnimationFrameが発火しない環境向けにsetTimeoutも併用）
+    let meterFilled = false;
+    const fillMeter = () => {
+      if (meterFilled) return;
+      meterFilled = true;
+      bar.style.width = diagnosis.percent + '%';
+    };
+    requestAnimationFrame(() => requestAnimationFrame(fillMeter));
+    setTimeout(fillMeter, 120);
+    diagnosisEl.style.display = 'block';
+    dailyGridEl.style.display = 'none';
+  } else if (session.mode === 'daily') {
+    const emojis = session.dailyResults.map(ok => ok ? '🐼' : '⬜').join('');
+    const correctCount = session.dailyResults.filter(Boolean).length;
+    document.getElementById('result-daily-emojis').textContent = emojis;
+    document.getElementById('result-daily-score').textContent = `${correctCount}/${session.dailyResults.length}`;
+    dailyGridEl.style.display = 'block';
+    diagnosisEl.style.display = 'none';
+  } else {
+    diagnosisEl.style.display = 'none';
+    dailyGridEl.style.display = 'none';
+  }
+
+  // R1: ストリーク節目バッジ
+  const streakBadgeEl = document.getElementById('result-streak-badge');
+  if (reachedMilestone) {
+    streakBadgeEl.textContent = `🎉 連続${reachedMilestone}日達成！`;
+    streakBadgeEl.style.display = 'block';
+  } else {
+    streakBadgeEl.style.display = 'none';
+  }
+
+  // R2: 新バッジ解放判定（累計正解数・ストリーク数を見るのでスコア確定後に実行）
+  const newBadges = evaluateNewBadges();
+  const newBadgeEl = document.getElementById('result-newbadge');
+  if (newBadges.length) {
+    newBadgeEl.innerHTML = newBadges.map(b => `🆕 新バッジ解放！【${b.emoji} ${b.name}】`).join('<br>');
+    newBadgeEl.style.display = 'block';
+  } else {
+    newBadgeEl.style.display = 'none';
+  }
+
+  lastResult = {
+    mode: session.mode,
+    score,
+    answeredCount: session.answeredCount,
+    isNewBest,
+    diagnosis,
+    dailyResults: session.mode === 'daily' ? session.dailyResults.slice() : null,
+    dailyDayNumber: session.mode === 'daily' ? dailyDayNumber() : null
+  };
 
   showScreen('screen-result');
   currentSessionMode = session.mode;
 
-  if (isNewBest) celebrate();
+  if (isNewBest || reachedMilestone) celebrate();
 }
 
 // ==================== 自己ベスト更新エフェクト（パン・パン・シャラララ〜ん） ====================
@@ -559,19 +759,24 @@ function celebrate() {
   const mascotEl = resultScreen.querySelector('.mascot');
   const shareBtn = resultScreen.querySelector('.share-btn');
   const newBestEl = resultScreen.querySelector('#result-newbest');
+  const streakBadgeEl = resultScreen.querySelector('#result-streak-badge');
 
   const appRect = app.getBoundingClientRect();
   const mascotRect = mascotEl.getBoundingClientRect();
   const shareRect = shareBtn.getBoundingClientRect();
-  const newBestRect = newBestEl.getBoundingClientRect();
+
+  // バッジ表示中の要素（自己ベスト or ストリーク節目）を基準に、無ければメイメイ画像を基準にする
+  const isVisible = el => el && el.offsetParent !== null;
+  const badgeEl = isVisible(newBestEl) ? newBestEl : (isVisible(streakBadgeEl) ? streakBadgeEl : mascotEl);
+  const badgeRect = badgeEl.getBoundingClientRect();
 
   // メイメイの画像〜Xシェアボタンの表示範囲（#app基準の相対座標）に収める
   const contentTop = mascotRect.top - appRect.top;
   const contentBottom = shareRect.bottom - appRect.top;
   const rangeHeight = contentBottom - contentTop;
 
-  // クラッカーは「自己ベスト更新」バッジの高さから発生させる
-  const burstY = (newBestRect.top + newBestRect.height / 2) - appRect.top;
+  // クラッカーは「バッジ」の高さから発生させる
+  const burstY = (badgeRect.top + badgeRect.height / 2) - appRect.top;
 
   const layer = document.createElement('div');
   layer.className = 'celebration-layer';
@@ -589,19 +794,45 @@ function celebrate() {
 let currentSessionMode = null;
 let lastResult = null;
 
+// ==================== S3: コール&レスポンス演出 ====================
+function callResponse() {
+  const app = document.getElementById('app');
+  const pop = document.getElementById('callresponse-pop');
+
+  // ポンとテキストを出す（連打対応：アニメーションを再始動させる）
+  pop.textContent = '私も〜！！🐼';
+  pop.classList.remove('show');
+  void pop.offsetWidth; // reflowでアニメーションをリスタート
+  pop.classList.add('show');
+  clearTimeout(callResponse._hideTimer);
+  callResponse._hideTimer = setTimeout(() => pop.classList.remove('show'), 1000);
+
+  // 紙吹雪を少量出す
+  const layer = document.createElement('div');
+  layer.className = 'celebration-layer';
+  app.appendChild(layer);
+  const w = app.clientWidth;
+  const y = app.clientHeight * 0.35;
+  spawnBurst(layer, w / 2, y, true, 0);
+  setTimeout(() => layer.remove(), 1200);
+}
+
 // ==================== Xシェア ====================
 function buildShareText(result) {
   const bonus = result.isNewBest ? '🎉自己ベスト更新！🎉\n' : '';
   if (result.mode === 'timeAttack') {
-    return `${bonus}愛生博士クイズのタイムアタックで${result.score}問正解でした🐼\nあなたは何問いける？\n#愛生博士クイズ #山﨑愛生`;
+    const titleLine = result.diagnosis ? `\n診断結果は【${result.diagnosis.title}】でした🐼\nあなたの博士度は？` : '\nあなたは何問いける？';
+    return `${bonus}愛生博士クイズ タイムアタックで${result.score}問正解！${titleLine}\n#愛生博士クイズ #山﨑愛生`;
   }
   if (result.mode === 'endless') {
-    return `${bonus}愛生博士クイズのエンドレスモードで${result.score}問連続正解🐼✨\nこの記録、超えられる？\n#愛生博士クイズ #山﨑愛生`;
+    const titleLine = result.diagnosis ? `\n診断結果は【${result.diagnosis.title}】でした🐼\nあなたの博士度は？` : '\nこの記録、超えられる？';
+    return `${bonus}愛生博士クイズ エンドレスモードで${result.score}問連続正解✨${titleLine}\n#愛生博士クイズ #山﨑愛生`;
   }
   if (result.mode === 'daily') {
-    return result.score > 0
-      ? `愛生博士クイズ「今日の1問」正解しました🎓🐼\n今日の問題、あなたは解ける？\n#愛生博士クイズ #山﨑愛生`
-      : `愛生博士クイズ「今日の1問」むずかしかった…😵🐼\n今日の問題、あなたは解ける？\n#愛生博士クイズ #山﨑愛生`;
+    const grid = (result.dailyResults || []).map(ok => ok ? '🐼' : '⬜').join('');
+    const correctCount = (result.dailyResults || []).filter(Boolean).length;
+    const total = (result.dailyResults || []).length;
+    return `愛生博士 今日の3問 #${result.dailyDayNumber}日目\n${grid} ${correctCount}/${total}\nあなたも挑戦してね🐼\n#愛生博士クイズ #山﨑愛生`;
   }
   return `愛生博士クイズの学習モードで${result.score}問復習しました📖🐼\n愛生ちゃん博士に一歩近づいたかも\n#愛生博士クイズ #山﨑愛生`;
 }
@@ -630,9 +861,13 @@ function backToModes() {
   goToModes();
 }
 
+// R1: ストリーク節目
+const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100];
+
+// 戻り値：今回のプレイで新たに到達した節目日数（無ければnull）
 function updateStreakOnPlay() {
   const today = new Date().toISOString().slice(0, 10);
-  if (save.streak.lastPlayedDate === today) return;
+  if (save.streak.lastPlayedDate === today) return null;
 
   const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
   if (save.streak.lastPlayedDate === yesterday) {
@@ -642,6 +877,11 @@ function updateStreakOnPlay() {
   }
   save.streak.lastPlayedDate = today;
   writeSave(save);
+
+  if (STREAK_MILESTONES.includes(save.streak.count)) {
+    return save.streak.count;
+  }
+  return null;
 }
 
 // ==================== 図鑑（学習モードのサブ画面） ====================
@@ -655,6 +895,30 @@ function openEncyclopedia() {
     list.appendChild(item);
   });
   showScreen('screen-encyclopedia');
+}
+
+// ==================== バッジコレクション画面 ====================
+function renderBadgeGrid(elId, badgeList, hintFor) {
+  const grid = document.getElementById(elId);
+  grid.innerHTML = '';
+  badgeList.forEach(b => {
+    const cell = document.createElement('div');
+    const unlockedDate = save.badges[b.id];
+    if (unlockedDate) {
+      cell.className = 'badge-cell';
+      cell.innerHTML = `<span class="badge-emoji">${b.emoji}</span><span class="badge-name">${b.name}</span><span class="badge-date">${unlockedDate}解放</span>`;
+    } else {
+      cell.className = 'badge-cell locked';
+      cell.innerHTML = `<span class="badge-emoji">${b.emoji}</span><span class="badge-name">${b.name}</span><span class="badge-hint">${hintFor(b.min)}</span>`;
+    }
+    grid.appendChild(cell);
+  });
+}
+
+function openBadges() {
+  renderBadgeGrid('badge-grid-correct', CORRECT_BADGES, min => `累計${min}問正解で解放`);
+  renderBadgeGrid('badge-grid-streak', STREAK_BADGES, min => `連続${min}日プレイで解放`);
+  showScreen('screen-badges');
 }
 
 boot();
