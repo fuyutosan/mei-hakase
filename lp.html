@@ -326,18 +326,33 @@
   }
   footer p { font-size: 13px; color: #999; margin-top: 24px; }
 
+  .hero-panda { display: none; }
+
   @media (max-width: 640px) {
-    /* スマホでは文字を上・パンダ博士を下に分けて重なりを防ぐ */
+    /* スマホ：背景はキラキラのステージ、右下に透過パンダ博士を重ねる2層構成 */
     .hero {
-      background-size: auto 320px;
-      background-position: right -30px bottom;
-      min-height: auto;
-      padding: 40px 0 300px;
+      background-position: left top;
+      min-height: 640px;
+      padding: 36px 0 280px;
       align-items: flex-start;
     }
     .hero::before {
-      background: linear-gradient(180deg, rgba(250,250,245,0.95) 0%, rgba(250,250,245,0.88) 40%, rgba(250,250,245,0) 72%);
+      background: linear-gradient(180deg,
+        rgba(250,250,245,0.92) 0%,
+        rgba(250,250,245,0.84) 38%,
+        rgba(250,250,245,0.45) 58%,
+        rgba(250,250,245,0.05) 80%,
+        rgba(250,250,245,0) 100%);
     }
+    .hero-panda {
+      display: block;
+      position: absolute;
+      right: 8px;
+      bottom: 0;
+      height: 320px;
+      z-index: 1;
+    }
+    .hero .wrap { z-index: 2; }
     .hero h1 { font-size: 34px; }
   }
 </style>
@@ -345,6 +360,7 @@
 <body>
 
 <section class="hero">
+  <img class="hero-panda" src="assets/Meimei.png" alt="" aria-hidden="true">
   <div class="wrap">
     <p class="hero-logo">🎓 愛生博士クイズ</p>
     <h1>あなたは、<br>何問解ける？</h1>
