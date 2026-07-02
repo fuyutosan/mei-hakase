@@ -192,6 +192,175 @@
   }
   .rank-progress { font-size: 12px; color: #888; }
 
+  /* ==================== S1: 博士度診断・メーター ==================== */
+  #result-diagnosis {
+    display: none;
+    text-align: center;
+    margin: 12px 0 18px;
+  }
+  #result-diagnosis-title {
+    font-family: 'Orbitron', 'Noto Sans JP', sans-serif;
+    font-size: 24px;
+    font-weight: 900;
+    color: var(--mei);
+    margin-bottom: 6px;
+  }
+  #result-diagnosis-comment {
+    font-size: 15px;
+    color: #555;
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+  .meter-track {
+    width: 100%;
+    height: 18px;
+    background: #eee;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  #result-meter-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--mei);
+    border-radius: 10px;
+    transition: width 1s cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  #result-meter-bar.is-max { background: var(--gold); }
+  #result-diagnosis-percent {
+    font-size: 13px;
+    font-weight: 700;
+    color: #888;
+  }
+
+  /* ==================== S2: 今日の3問 絵文字グリッド ==================== */
+  #result-daily-grid {
+    display: none;
+    text-align: center;
+    margin: 12px 0 18px;
+  }
+  #result-daily-emojis {
+    font-size: 32px;
+    letter-spacing: 6px;
+    margin-bottom: 6px;
+  }
+  #result-daily-score {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--mei);
+  }
+
+  /* ==================== S3: コール&レスポンス ==================== */
+  .callresponse-btn {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    font-size: 18px;
+    font-weight: 900;
+    border: 2px solid var(--mei);
+    border-radius: 16px;
+    background: #eefbf0;
+    color: var(--mei);
+    cursor: pointer;
+    margin-bottom: 14px;
+  }
+  .callresponse-btn:active { transform: translateY(2px); }
+  #callresponse-pop {
+    display: none;
+    position: absolute;
+    left: 50%;
+    top: 40%;
+    transform: translate(-50%, -50%);
+    font-size: 30px;
+    font-weight: 900;
+    color: var(--mei);
+    text-shadow: 0 2px 8px rgba(255,255,255,0.9);
+    pointer-events: none;
+    z-index: 60;
+    white-space: nowrap;
+  }
+  #callresponse-pop.show {
+    animation: popResponse 1s ease-out forwards;
+  }
+  @keyframes popResponse {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+    15% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    30% { transform: translate(-50%, -50%) scale(1); }
+    75% { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -60%) scale(1); }
+  }
+
+  /* ==================== R1: ストリーク節目バッジ ==================== */
+  #result-streak-badge {
+    display: none;
+    text-align: center;
+    background: #fff9e6;
+    border: 2px solid var(--gold);
+    border-radius: 14px;
+    padding: 10px;
+    font-weight: 900;
+    color: #a67c00;
+    margin-bottom: 14px;
+  }
+
+  /* ==================== R2: 新バッジ解放 ==================== */
+  #result-newbadge {
+    display: none;
+    text-align: center;
+    background: #eefbf0;
+    border: 2px solid var(--mei);
+    border-radius: 14px;
+    padding: 10px;
+    font-weight: 900;
+    color: var(--mei);
+    margin-bottom: 14px;
+  }
+
+  /* ==================== バッジコレクション画面 ==================== */
+  .badge-section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #888;
+    margin: 16px 0 8px;
+  }
+  .badge-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .badge-cell {
+    background: #f2fbf3;
+    border: 2px solid var(--mei);
+    border-radius: 14px;
+    padding: 12px 6px;
+    text-align: center;
+  }
+  .badge-cell.locked {
+    background: #f4f4f4;
+    border-color: #ddd;
+    color: #aaa;
+  }
+  .badge-emoji { font-size: 30px; display: block; margin-bottom: 4px; }
+  .badge-cell.locked .badge-emoji { filter: grayscale(1); opacity: 0.4; }
+  .badge-name { font-size: 12px; font-weight: 700; line-height: 1.3; }
+  .badge-date { font-size: 10px; color: #888; margin-top: 2px; }
+  .badge-hint { font-size: 10px; color: #aaa; margin-top: 2px; }
+
+  .blog-link-btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    border: 2px solid var(--mei);
+    border-radius: 14px;
+    background: #fff;
+    color: var(--mei);
+    text-decoration: none;
+    text-align: center;
+    margin-top: 16px;
+  }
+
   .status-bar {
     display: flex;
     gap: 10px;
@@ -412,8 +581,8 @@
     <button class="mode-card daily" id="daily-card" onclick="startMode('daily')">
       <span class="mode-icon">📅</span>
       <span>
-        <span class="mode-title">今日の1問</span><br>
-        <span class="mode-desc" id="daily-desc">毎日変わる1問に挑戦。みんな同じ問題だよ</span>
+        <span class="mode-title">今日の3問</span><br>
+        <span class="mode-desc" id="daily-desc">毎日変わる3問に挑戦。みんな同じ問題だよ</span>
       </span>
     </button>
 
@@ -442,6 +611,7 @@
     </button>
 
     <button class="secondary-btn" onclick="openEncyclopedia()">📚 愛生ちゃん図鑑を見る</button>
+    <button class="secondary-btn" onclick="openBadges()">🐼 バッジコレクション</button>
   </section>
 
   <!-- プレイ画面 -->
@@ -460,13 +630,32 @@
     <img class="mascot" src="assets/Meimei.png" alt="結果発表">
     <h2 id="result-mode-label" class="center">結果発表！</h2>
     <div id="result-newbest">🎉 自己ベスト更新！🎉</div>
+    <div id="result-streak-badge"></div>
+    <div id="result-newbadge"></div>
     <div id="result-score">0</div>
     <div id="result-best-wrap">自己ベスト：<span id="result-best">0</span></div>
+
+    <!-- S1: 博士度診断メーター（timeAttack/endlessのみ） -->
+    <div id="result-diagnosis">
+      <div id="result-diagnosis-title"></div>
+      <div id="result-diagnosis-comment"></div>
+      <div class="meter-track"><div id="result-meter-bar"></div></div>
+      <div id="result-diagnosis-percent"></div>
+    </div>
+
+    <!-- S2: 今日の3問 絵文字グリッド（dailyのみ） -->
+    <div id="result-daily-grid">
+      <div id="result-daily-emojis"></div>
+      <div id="result-daily-score"></div>
+    </div>
+
     <p class="center" style="font-size:13px;color:#888;">連続プレイ <span id="result-streak">0</span>日目</p>
     <p class="center" id="result-rank" style="font-size:14px;color:var(--mei);font-weight:700;margin-bottom:16px;"></p>
+    <button class="callresponse-btn" onclick="callResponse()">パンダさん、パワーーー！！</button>
     <button class="primary-btn" onclick="playAgain()">🔁 もう1回！</button>
     <button class="share-btn" onclick="shareToX()">🐦 Xで結果をシェア</button>
     <button class="secondary-btn" onclick="backToModes()">モードを選び直す</button>
+    <div id="callresponse-pop"></div>
   </section>
 
   <!-- 図鑑 -->
@@ -474,6 +663,17 @@
     <button class="back-link" onclick="goToModes()">← 戻る</button>
     <h2>愛生ちゃん図鑑</h2>
     <div id="encyclopedia-list"></div>
+    <a class="blog-link-btn" href="https://ameblo.jp/morningmusume15ki/entrylist.html" target="_blank" rel="noopener">📖 愛生ちゃんのブログを読みに行く</a>
+  </section>
+
+  <!-- バッジコレクション -->
+  <section id="screen-badges" class="screen">
+    <button class="back-link" onclick="goToModes()">← 戻る</button>
+    <h2 class="center">🐼 バッジコレクション</h2>
+    <div class="badge-section-title">累計正解バッジ</div>
+    <div id="badge-grid-correct" class="badge-grid"></div>
+    <div class="badge-section-title">連続プレイバッジ</div>
+    <div id="badge-grid-streak" class="badge-grid"></div>
   </section>
 
 </div>
