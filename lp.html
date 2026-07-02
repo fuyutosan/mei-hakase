@@ -61,6 +61,23 @@
     margin: 0 auto 28px;
     max-width: 440px;
   }
+  .hero-chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+  .hero-chips span {
+    background: #fff;
+    border: 1.5px solid var(--mei);
+    color: var(--mei);
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 5px 14px;
+  }
+
   .cta-btn {
     display: inline-block;
     padding: 20px 40px;
@@ -198,6 +215,53 @@
     justify-content: center;
   }
 
+  .rank-lead {
+    text-align: center;
+    color: #555;
+    margin: 0 0 24px;
+  }
+  .rank-ladder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .rank-step {
+    width: 100%;
+    max-width: 340px;
+    text-align: center;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 10px 18px;
+    background: #f2fbf3;
+    border: 1.5px solid #cdeed1;
+    color: #3a3a3a;
+    position: relative;
+  }
+  .rank-step:not(:last-child)::after {
+    content: "▼";
+    display: block;
+    color: var(--mei-light);
+    font-size: 11px;
+    position: absolute;
+    left: 50%;
+    bottom: -16px;
+    transform: translateX(-50%);
+    z-index: 1;
+  }
+  .rank-step:not(:last-child) { margin-bottom: 10px; }
+  .rank-step.goal {
+    background: linear-gradient(135deg, #fff5d6, #ffe9a8);
+    border: 2px solid var(--gold);
+    color: #7a5c00;
+    font-size: 20px;
+    padding: 16px 18px;
+    box-shadow: 0 4px 14px rgba(255,193,7,0.35);
+  }
+
+  .mode-card.daily-card { background: #fff9e6; border: 2px solid var(--gold); }
+  .tag-gold { color: #a07800 !important; }
+
   .screenshot-gallery {
     display: flex;
     gap: 16px;
@@ -252,8 +316,11 @@
     <img class="hero-mascot" src="assets/Meimei.png" alt="愛生博士">
     <h1>愛生博士クイズ 🐼</h1>
     <p class="lead">解けば解くほど、山﨑愛生ちゃん（モーニング娘。'26）に詳しくなる。<br>気づいた頃には、あなたも「愛生博士」に。<br>登録不要・完全無料のブラウザクイズです。</p>
+    <div class="hero-chips">
+      <span>全165問</span><span>登録不要</span><span>完全無料</span><span>毎日日替わり問題</span>
+    </div>
     <a class="cta-btn" href="index.html">愛生博士を目指す →</a>
-    <p class="cta-sub">スマホでもPCでもすぐ遊べます</p>
+    <p class="cta-sub">スマホでもPCでもすぐ遊べます・ホーム画面に追加すればアプリみたいに使えるよ</p>
   </div>
 </section>
 
@@ -284,8 +351,30 @@
 
 <section class="alt">
   <div class="wrap">
-    <h2 class="section-title">3つのモードで遊べる</h2>
+    <h2 class="section-title">遊ぶほど、ランクが上がる</h2>
+    <p class="rank-lead">正解を重ねると、5段階のランクを昇格していきます。<br>ゴールはもちろん——</p>
+    <div class="rank-ladder">
+      <div class="rank-step">🌱 愛生博士見習い</div>
+      <div class="rank-step">💚 愛生ファン</div>
+      <div class="rank-step">🔥 愛生マニア</div>
+      <div class="rank-step">📚 愛生博士候補</div>
+      <div class="rank-step goal">🎓 愛生博士</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2 class="section-title">4つの遊び方</h2>
     <div class="mode-grid">
+      <div class="mode-card daily-card">
+        <div class="icon">📅</div>
+        <div>
+          <span class="tag tag-gold">毎日日替わり</span>
+          <h3>今日の1問</h3>
+          <p>日付で決まる1問に、みんなで挑戦。全員同じ問題だから、答え合わせで盛り上がれる。1日1回だけ。</p>
+        </div>
+      </div>
       <div class="mode-card">
         <div class="icon">⏱️</div>
         <div>
@@ -323,6 +412,7 @@
       <li><span class="check">✓</span>自己ベストを更新すると、パン・パン・しゃらら〜んの演出でお祝い</li>
       <li><span class="check">✓</span>間違えても責めない、愛生ちゃん口調のやさしい解説つき</li>
       <li><span class="check">✓</span>アカウント登録・課金は一切なし。ブラウザですぐ遊べる</li>
+      <li><span class="check">✓</span>スマホのホーム画面に追加すれば、アプリみたいにワンタップで起動</li>
     </ul>
     <div class="quote-box">
       「いつか私もクイズになりたい！！」— 愛生ちゃんの言葉が、本当にクイズになりました🐼
@@ -344,8 +434,8 @@
         <figcaption>自己ベスト更新でお祝い演出🎉</figcaption>
       </figure>
       <figure>
-        <img src="assets/screenshot-result.png" alt="結果画面のスクリーンショット" loading="lazy">
-        <figcaption>結果はそのままXでシェアできる</figcaption>
+        <img src="assets/screenshot-modes.png" alt="モード選択画面のスクリーンショット" loading="lazy">
+        <figcaption>ランクを上げて「愛生博士」を目指そう</figcaption>
       </figure>
     </div>
   </div>
