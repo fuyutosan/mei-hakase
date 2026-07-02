@@ -606,10 +606,13 @@ function buildShareText(result) {
   return `愛生博士クイズの学習モードで${result.score}問復習しました📖🐼\n愛生ちゃん博士に一歩近づいたかも\n#愛生博士クイズ #山﨑愛生`;
 }
 
+// Xはカード情報をURLごとにキャッシュするため、OGP画像を変えたらこの番号を上げる
+const SHARE_CARD_VERSION = 2;
+
 function shareToX() {
   if (!lastResult) return;
   const text = buildShareText(lastResult);
-  const url = location.href.split('?')[0].split('#')[0];
+  const url = location.href.split('?')[0].split('#')[0] + '?v=' + SHARE_CARD_VERSION;
   const intent = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(url);
   window.open(intent, '_blank', 'noopener');
 }
