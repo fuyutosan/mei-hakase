@@ -41,7 +41,8 @@ function defaultSave() {
     unlockedOutfits: {},
     omikuji: null,
     lastVisitDate: null,
-    anniversarySeenDate: null
+    anniversarySeenDate: null,
+    guideSeen: false
   };
 }
 
@@ -66,6 +67,8 @@ function loadSave() {
     if (typeof parsed.omikuji === 'undefined') parsed.omikuji = null;
     if (typeof parsed.lastVisitDate === 'undefined') parsed.lastVisitDate = null;
     if (typeof parsed.anniversarySeenDate === 'undefined') parsed.anniversarySeenDate = null;
+    // N2: 旧セーブへの防御ガード。既にonboarded済みの既存ユーザーにはガイドを二度と出さない
+    if (typeof parsed.guideSeen === 'undefined') parsed.guideSeen = !!parsed.onboarded;
     return parsed;
   } catch (e) {
     return defaultSave();
@@ -266,6 +269,7 @@ function boot() {
 
 // ==================== 導入クイズ（初回のみ） ====================
 let introIndex = 0;
+let justOnboarded = false; // N2: 名前入力直後にホーム着地したかどうか（初回ガイド表示の判定用）
 
 function startIntro() {
   introIndex = 0;
@@ -304,6 +308,7 @@ function submitName() {
   save.nickname = nickname || '名無しのパンダさん';
   save.onboarded = true;
   writeSave(save);
+  justOnboarded = true;
   goToModes();
 }
 
@@ -311,6 +316,7 @@ function skipName() {
   save.nickname = '名無しのパンダさん';
   save.onboarded = true;
   writeSave(save);
+  justOnboarded = true;
   goToModes();
 }
 
@@ -657,6 +663,30 @@ function renderHome() {
   writeSave(save);
 
   showScreen('screen-home');
+
+  // N2: 初回ガイド（名前入力直後にホームへ着地した1回だけ）
+  if (justOnboarded && !save.guideSeen) {
+    justOnboarded = false;
+    showFirstTimeGuide();
+  } else {
+    justOnboarded = false;
+  }
+}
+
+// ==================== N2: 初回ガイド（1回だけ） ====================
+function showFirstTimeGuide() {
+  save.guideSeen = true;
+  writeSave(save);
+
+  showMascotBubble('クイズは🎮あそぶにいーっぱいあるよ！したのボタンからもいけるよ〜🐼', 4000);
+
+  const tabBtn = document.getElementById('tab-btn-play');
+  if (tabBtn) {
+    tabBtn.classList.remove('guide-bounce');
+    void tabBtn.offsetWidth;
+    tabBtn.classList.add('guide-bounce');
+    setTimeout(() => tabBtn.classList.remove('guide-bounce'), 2200);
+  }
 }
 
 // ==================== L1: 生きてるマスコット ====================
@@ -703,14 +733,16 @@ function renderGreeting() {
 let mascotTapCount = 0;
 let mascotTapResetTimer = null;
 
-function showMascotBubble(text) {
+function showMascotBubble(text, durationMs) {
+  const duration = durationMs || 2500;
   const bubble = document.getElementById('mascot-bubble');
   bubble.textContent = text;
   bubble.classList.remove('show');
   void bubble.offsetWidth;
+  bubble.style.animationDuration = duration + 'ms';
   bubble.classList.add('show');
   clearTimeout(showMascotBubble._hideTimer);
-  showMascotBubble._hideTimer = setTimeout(() => bubble.classList.remove('show'), 2500);
+  showMascotBubble._hideTimer = setTimeout(() => bubble.classList.remove('show'), duration);
 }
 
 function bounceMascot() {
@@ -878,12 +910,18 @@ function renderSasaBalance() {
   if (el) el.textContent = save.sasa;
 }
 
+// N1/N3: 今日の3問カードのタップ処理（div化のためbuttonのdisabled相当を自前判定）
+function onDailyCardTap(e) {
+  if (dailyDoneToday()) return; // クリア済みは無効のまま。中の「つぎは」ボタンだけ生かす（onclickでstopPropagation済み）
+  startMode('daily');
+}
+
 function renderDailyCard() {
-  const btn = document.getElementById('daily-card');
+  const card = document.getElementById('daily-card');
   const desc = document.getElementById('daily-desc');
+  const nextBtn = document.getElementById('daily-next-btn');
   if (dailyDoneToday()) {
-    btn.disabled = true;
-    btn.classList.add('daily-done');
+    card.classList.add('daily-done');
     const results = normalizeDailyResults(save.daily);
     if (results.length >= 3) {
       const correctCount = results.filter(Boolean).length;
@@ -892,10 +930,12 @@ function renderDailyCard() {
       // 旧形式データ（1問時代）の名残。詳細不明のため汎用文言でフォールバック
       desc.textContent = '挑戦済み！また明日リベンジしてね🐼';
     }
+    // N3: クリア済みカードに「つぎは⏱タイムアタック！」ボタンを表示（カード自体は無効のままこれだけ生かす）
+    if (nextBtn) nextBtn.style.display = 'inline-block';
   } else {
-    btn.disabled = false;
-    btn.classList.remove('daily-done');
+    card.classList.remove('daily-done');
     desc.textContent = '毎日変わる3問に挑戦。みんな同じ問題だよ';
+    if (nextBtn) nextBtn.style.display = 'none';
   }
 }
 
@@ -1358,6 +1398,7 @@ function endSession() {
   }
 
   document.getElementById('result-mode-label').textContent = label;
+  renderResultActionButtons(session.mode); // N4: リザルトを分岐点にする（モード別にボタンのラベル・遷移先を切り替え）
   document.getElementById('result-best-wrap').style.display = bestKey ? 'block' : 'none';
   if (bestKey) {
     document.getElementById('result-best').textContent = save.highScores[bestKey];
@@ -1671,7 +1712,8 @@ function shareToX() {
 
 function playAgain() {
   if (currentSessionMode === 'daily') {
-    // 今日の1問は1日1回。「もう1回」はホームタブに戻す
+    // 今日の3問は1日1回。主ボタンはN4でタイムアタックへの導線に差し替え済みだが、
+    // 念のため直接呼ばれた場合もホームに戻すフォールバックを残す
     renderHome();
     return;
   }
@@ -1680,6 +1722,42 @@ function playAgain() {
 
 function backToModes() {
   renderPlaySelect();
+}
+
+// ==================== N4: リザルトを分岐点にする ====================
+// モードごとに主ボタン（result-primary-btn）とセカンダリ導線（result-secondary-action-btn）の
+// ラベル・遷移先を切り替える。行き止まりを作らないことが目的。
+let resultSecondaryHandler = null;
+
+function renderResultActionButtons(mode) {
+  const primaryBtn = document.getElementById('result-primary-btn');
+  const secondaryBtn = document.getElementById('result-secondary-action-btn');
+
+  if (mode === 'daily') {
+    // 今日の3問クリア後：「もう1回」ではなく次の遊びへ誘導する
+    primaryBtn.textContent = '⏱ タイムアタックに挑戦！';
+    primaryBtn.onclick = () => startMode('timeAttack');
+    secondaryBtn.textContent = '♾️ エンドレスに挑戦';
+    secondaryBtn.style.display = 'block';
+    resultSecondaryHandler = () => startMode('endless');
+  } else if (mode === 'timeAttack' || mode === 'endless') {
+    // タイムアタック／エンドレス：「もう1回」は維持しつつ、ほかのモードへの導線を追加
+    primaryBtn.textContent = '🔁 もう1回！';
+    primaryBtn.onclick = () => playAgain();
+    secondaryBtn.textContent = '🎮 ほかのモードであそぶ';
+    secondaryBtn.style.display = 'block';
+    resultSecondaryHandler = () => goToTab('play-select');
+  } else {
+    // 学習モードは現状維持
+    primaryBtn.textContent = '🔁 もう1回！';
+    primaryBtn.onclick = () => playAgain();
+    secondaryBtn.style.display = 'none';
+    resultSecondaryHandler = null;
+  }
+}
+
+function resultSecondaryAction() {
+  if (resultSecondaryHandler) resultSecondaryHandler();
 }
 
 // R1: ストリーク節目
@@ -1743,7 +1821,7 @@ function openBadges() {
 
 // ==================== J1: ボタンtapポップ音（イベント委任で一括対応） ====================
 // choice-btn（クイズ選択肢）は正解/不正解音が別途鳴るためtap音の対象から除外する
-const TAP_SOUND_SELECTOR = '.primary-btn, .share-btn, .secondary-btn, .mode-card, .home-daily-cta, .callresponse-btn, .sound-toggle-btn, .blog-link-btn, .back-link';
+const TAP_SOUND_SELECTOR = '.primary-btn, .share-btn, .secondary-btn, .mode-card, .home-daily-cta, .callresponse-btn, .sound-toggle-btn, .blog-link-btn, .back-link, .home-timeattack-cta, .home-playall-link, .daily-next-btn';
 document.addEventListener('click', (e) => {
   const el = e.target.closest(TAP_SOUND_SELECTOR);
   if (!el || el.disabled) return;
