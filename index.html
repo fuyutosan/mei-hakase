@@ -100,6 +100,57 @@
   .home-daily-cta .mode-desc { font-size: 14px; color: #8a6d00; opacity: 0.9; }
   .home-daily-cta:disabled, .home-daily-cta.daily-done { opacity: 0.55; cursor: default; }
 
+  /* N3: 今日の3問クリア後カード内の「つぎは⏱タイムアタック！」ミニボタン */
+  .daily-next-btn {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 900;
+    border: none;
+    border-radius: 12px;
+    background: var(--mei);
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 3px 0 #05730f;
+  }
+  .daily-next-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #05730f; }
+
+  /* ==================== N1: ホームの遊びゾーン（タイムアタック常設ボタン） ==================== */
+  .home-play-zone { margin-bottom: 18px; }
+  .home-timeattack-cta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 20px;
+    margin: 10px 0 10px;
+    border: none;
+    border-radius: 20px;
+    background: var(--mei);
+    color: #fff;
+    cursor: pointer;
+    text-align: left;
+    box-shadow: 0 6px 0 #05730f;
+  }
+  .home-timeattack-cta:active { transform: translateY(4px); box-shadow: 0 2px 0 #05730f; }
+  .home-timeattack-cta .mode-icon { font-size: 40px; }
+  .home-timeattack-cta .mode-title { font-weight: 900; font-size: 21px; }
+  .home-timeattack-cta .mode-desc { font-size: 14px; opacity: 0.9; }
+
+  .home-playall-link {
+    display: block;
+    width: 100%;
+    text-align: center;
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 4px 0 14px;
+    cursor: pointer;
+  }
+
   /* ==================== 下タブナビゲーション追加分 ==================== */
   .tab-bar-inner { display: flex; width: 100%; }
 
@@ -122,7 +173,8 @@
 
   /* ==================== J5: マイクロアニメーション（ボタン共通） ==================== */
   .choice-btn, .primary-btn, .share-btn, .secondary-btn, .mode-card,
-  .callresponse-btn, .tab-btn, .sound-toggle-btn, .blog-link-btn, .back-link {
+  .callresponse-btn, .tab-btn, .sound-toggle-btn, .blog-link-btn, .back-link,
+  .home-playall-link, .daily-next-btn {
     transition: transform 0.1s, background 0.15s, box-shadow 0.1s;
   }
   .choice-btn:active:not(:disabled),
@@ -131,7 +183,9 @@
   .mode-card:active,
   .callresponse-btn:active,
   .tab-btn:active,
-  .sound-toggle-btn:active {
+  .sound-toggle-btn:active,
+  .home-playall-link:active,
+  .daily-next-btn:active {
     transform: scale(0.96);
   }
 
@@ -239,6 +293,19 @@
   .tab-btn.active { color: var(--mei); }
   .tab-btn.active .tab-icon { transform: translateY(-3px) scale(1.15); }
 
+  /* ==================== N2: 初回ガイド（🎮タブぴょこぴょこ） ==================== */
+  .tab-btn.guide-bounce .tab-icon {
+    animation: tabGuideBounce 0.7s ease-in-out 3;
+  }
+  .tab-btn.guide-bounce {
+    color: var(--mei);
+  }
+  @keyframes tabGuideBounce {
+    0%, 100% { transform: translateY(0) scale(1); filter: drop-shadow(0 0 0 rgba(7,156,21,0)); }
+    30% { transform: translateY(-9px) scale(1.25); filter: drop-shadow(0 0 6px rgba(7,156,21,0.7)); }
+    55% { transform: translateY(0) scale(0.95); filter: drop-shadow(0 0 0 rgba(7,156,21,0)); }
+  }
+
   h1, h2 {
     font-family: 'Orbitron', 'Noto Sans JP', sans-serif;
     color: var(--mei);
@@ -301,6 +368,15 @@
     margin-bottom: 14px;
   }
   .primary-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #05730f; }
+
+  /* N4: リザルトのセカンダリ導線ボタン（主ボタンほど強くない、でも押しやすい見た目） */
+  .primary-btn.outline-btn {
+    background: #fff;
+    color: var(--mei);
+    border: 2px solid var(--mei);
+    box-shadow: none;
+  }
+  .primary-btn.outline-btn:active { transform: scale(0.97); box-shadow: none; }
 
   .share-btn {
     display: block;
@@ -1074,13 +1150,27 @@
       🔥 連続プレイ <span id="home-streak">0</span>日
     </div>
 
-    <button class="home-daily-cta" id="daily-card" onclick="startMode('daily')">
-      <span class="mode-icon">📅</span>
-      <span>
-        <span class="mode-title">今日の3問</span><br>
-        <span class="mode-desc" id="daily-desc">毎日変わる3問に挑戦。みんな同じ問題だよ</span>
-      </span>
-    </button>
+    <!-- N1: ホームの遊びゾーン（今日の3問→タイムアタック→あそびかたリンク） -->
+    <div class="home-play-zone">
+      <div class="home-daily-cta" id="daily-card" role="button" tabindex="0" onclick="onDailyCardTap(event)" onkeydown="if(event.key==='Enter')onDailyCardTap(event)">
+        <span class="mode-icon">📅</span>
+        <span style="flex:1;">
+          <span class="mode-title">今日の3問</span><br>
+          <span class="mode-desc" id="daily-desc">毎日変わる3問に挑戦。みんな同じ問題だよ</span><br>
+          <button class="daily-next-btn" id="daily-next-btn" style="display:none;" onclick="event.stopPropagation(); startMode('timeAttack')">⏱ つぎは タイムアタック！</button>
+        </span>
+      </div>
+
+      <button class="home-timeattack-cta" onclick="startMode('timeAttack')">
+        <span class="mode-icon">⏱</span>
+        <span>
+          <span class="mode-title">60秒タイムアタック</span><br>
+          <span class="mode-desc">まずはここから！何問正解できるかな？</span>
+        </span>
+      </button>
+
+      <button class="home-playall-link" onclick="goToTab('play-select')">🎮 ぜんぶのあそびかたを見る →</button>
+    </div>
 
     <!-- L6: パンダさんおみくじ -->
     <div class="omikuji-card">
@@ -1201,7 +1291,8 @@
     <p class="center" style="font-size:13px;color:#888;">連続プレイ <span id="result-streak">0</span>日目</p>
     <p class="center" id="result-rank" style="font-size:14px;color:var(--mei);font-weight:700;margin-bottom:16px;"></p>
     <button class="callresponse-btn" onclick="callResponse()">パンダさん、パワーーー！！</button>
-    <button class="primary-btn" onclick="playAgain()">🔁 もう1回！</button>
+    <button class="primary-btn" id="result-primary-btn" onclick="playAgain()">🔁 もう1回！</button>
+    <button class="primary-btn outline-btn" id="result-secondary-action-btn" style="display:none;" onclick="resultSecondaryAction()"></button>
     <button class="share-btn" onclick="shareToX()">🐦 Xで結果をシェア</button>
     <button class="secondary-btn" onclick="backToModes()">モードを選び直す</button>
     <div id="callresponse-pop"></div>
