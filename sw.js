@@ -1,10 +1,11 @@
 // 愛生博士クイズ — オフライン対応サービスワーカー
-const CACHE = 'mei-hakase-v5';
+const CACHE = 'mei-hakase-v6';
 const ASSETS = [
   './',
   './index.html',
   './app.js',
   './quiz-data.js',
+  './mei-content.js',
   './manifest.webmanifest',
   './assets/Meimei.png',
   './assets/icon-192.png',
