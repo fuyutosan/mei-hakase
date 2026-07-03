@@ -1,5 +1,5 @@
 // 愛生博士クイズ — オフライン対応サービスワーカー
-const CACHE = 'mei-hakase-v6';
+const CACHE = 'mei-hakase-v7';
 const ASSETS = [
   './',
   './index.html',
