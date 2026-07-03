@@ -31,7 +31,17 @@ function defaultSave() {
     wrongQuestions: {},
     totalStats: { totalAnswered: 0, totalCorrect: 0 },
     daily: null,
-    badges: {}
+    badges: {},
+    settings: { sound: true },
+    // Wave 2 追加分
+    power: { value: 60, lastDate: null },
+    cards: {},
+    sasa: 0,
+    outfit: null,
+    unlockedOutfits: {},
+    omikuji: null,
+    lastVisitDate: null,
+    anniversarySeenDate: null
   };
 }
 
@@ -43,6 +53,19 @@ function loadSave() {
     if (!parsed || parsed.version !== 1) return defaultSave();
     // 古いセーブにフィールドが無い場合の防御的ガード
     parsed.badges = parsed.badges || {};
+    parsed.settings = parsed.settings || { sound: true };
+    if (typeof parsed.settings.sound !== 'boolean') parsed.settings.sound = true;
+    // Wave 2: 旧セーブ（power/cards/sasa/outfit/omikuji未所持）への防御ガード
+    if (!parsed.power || typeof parsed.power.value !== 'number') {
+      parsed.power = { value: 60, lastDate: null };
+    }
+    parsed.cards = parsed.cards || {};
+    if (typeof parsed.sasa !== 'number' || isNaN(parsed.sasa)) parsed.sasa = 0;
+    if (typeof parsed.outfit === 'undefined') parsed.outfit = null;
+    parsed.unlockedOutfits = parsed.unlockedOutfits || {};
+    if (typeof parsed.omikuji === 'undefined') parsed.omikuji = null;
+    if (typeof parsed.lastVisitDate === 'undefined') parsed.lastVisitDate = null;
+    if (typeof parsed.anniversarySeenDate === 'undefined') parsed.anniversarySeenDate = null;
     return parsed;
   } catch (e) {
     return defaultSave();
@@ -55,10 +78,181 @@ function writeSave(save) {
 
 let save = loadSave();
 
+// ==================== J1: 効果音（WebAudio合成） ====================
+const sfx = (function () {
+  let ctx = null;
+  let unlocked = false;
+
+  function ensureContext() {
+    if (ctx) return ctx;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    ctx = new AC();
+    return ctx;
+  }
+
+  // 初回ユーザー操作でAudioContextを初期化・再開する（ブラウザの自動再生制限対応）
+  function unlockOnFirstInteraction() {
+    if (unlocked) return;
+    unlocked = true;
+    const c = ensureContext();
+    if (c && c.state === 'suspended') c.resume().catch(() => {});
+  }
+  ['pointerdown', 'keydown', 'touchstart'].forEach(evt => {
+    window.addEventListener(evt, unlockOnFirstInteraction, { once: true, passive: true });
+  });
+
+  function isEnabled() {
+    return !!(save && save.settings && save.settings.sound);
+  }
+
+  // 1音鳴らす。type: oscillator波形, freq: 周波数(Hz), start: 開始時刻オフセット(秒), dur: 長さ(秒), gain: 音量(0〜1), glideTo: 指定時はfreqへ滑らかに変化
+  function tone(c, { type = 'sine', freq = 440, start = 0, dur = 0.15, gain = 0.15, glideTo = null }) {
+    const osc = c.createOscillator();
+    const amp = c.createGain();
+    osc.type = type;
+    const t0 = c.currentTime + start;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (glideTo) osc.frequency.linearRampToValueAtTime(glideTo, t0 + dur);
+    amp.gain.setValueAtTime(0, t0);
+    amp.gain.linearRampToValueAtTime(gain, t0 + 0.015);
+    amp.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(amp);
+    amp.connect(c.destination);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+  }
+
+  function playSafe(fn) {
+    if (!isEnabled()) return;
+    const c = ensureContext();
+    if (!c) return;
+    if (c.state === 'suspended') c.resume().catch(() => {});
+    try { fn(c); } catch (e) { /* 音が鳴らなくてもゲーム進行は止めない */ }
+  }
+
+  return {
+    // 正解ピンポン：2音上昇。comboLevel(2以上)が渡された場合は基準音を半音ずつ上げる
+    correct(comboLevel) {
+      playSafe(c => {
+        const semitoneUp = Math.max(0, (comboLevel || 1) - 1);
+        const shift = Math.pow(2, semitoneUp / 12);
+        tone(c, { type: 'sine', freq: 523.25 * shift, start: 0, dur: 0.12, gain: 0.16 });
+        tone(c, { type: 'sine', freq: 784.0 * shift, start: 0.1, dur: 0.16, gain: 0.18 });
+      });
+    },
+    // 不正解ぽよん：優しい下降
+    wrong() {
+      playSafe(c => {
+        tone(c, { type: 'sine', freq: 330, start: 0, dur: 0.22, gain: 0.14, glideTo: 220 });
+      });
+    },
+    // ボタンtapポップ音
+    tap() {
+      playSafe(c => {
+        tone(c, { type: 'triangle', freq: 600, start: 0, dur: 0.06, gain: 0.08 });
+      });
+    },
+    // リザルトのドラムロール（短い連打音）
+    drumroll() {
+      playSafe(c => {
+        for (let i = 0; i < 14; i++) {
+          tone(c, { type: 'square', freq: 140 + Math.random() * 20, start: i * 0.055, dur: 0.05, gain: 0.06 });
+        }
+      });
+    },
+    // ファンファーレ
+    fanfare() {
+      playSafe(c => {
+        const notes = [523.25, 659.25, 783.99, 1046.5];
+        notes.forEach((f, i) => {
+          tone(c, { type: 'triangle', freq: f, start: i * 0.13, dur: 0.22, gain: 0.17 });
+        });
+      });
+    },
+    // ベスト更新・バッジ解放きらきらアルペジオ
+    sparkle() {
+      playSafe(c => {
+        const notes = [880, 1046.5, 1318.5, 1568, 2093];
+        notes.forEach((f, i) => {
+          tone(c, { type: 'sine', freq: f, start: i * 0.07, dur: 0.18, gain: 0.12 });
+        });
+      });
+    }
+  };
+})();
+
+// ==================== J2: ハプティクス ====================
+const haptics = {
+  correct() {
+    if (navigator.vibrate) navigator.vibrate(30);
+  },
+  wrong() {
+    if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
+  },
+  celebrate() {
+    if (navigator.vibrate) navigator.vibrate([30, 40, 30, 40, 80]);
+  }
+};
+
+// ==================== サウンドトグル（🔊/🔇） ====================
+function refreshSoundToggleUI() {
+  const on = !!(save.settings && save.settings.sound);
+  document.querySelectorAll('.sound-toggle-btn').forEach(btn => {
+    btn.textContent = on ? '🔊' : '🔇';
+  });
+}
+
+function toggleSound() {
+  save.settings = save.settings || { sound: true };
+  save.settings.sound = !save.settings.sound;
+  writeSave(save);
+  refreshSoundToggleUI();
+  if (save.settings.sound) sfx.tap();
+}
+
 // ==================== 画面切り替え ====================
+const TABBED_SCREENS = { home: 'screen-home', 'play-select': 'screen-play-select', collection: 'screen-collection' };
+const SCREENS_WITH_TABBAR = new Set(Object.values(TABBED_SCREENS));
+
 function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.screen').forEach(el => {
+    el.classList.remove('active', 'screen-enter');
+  });
+  const target = document.getElementById(id);
+  target.classList.add('active', 'screen-enter');
+
+  const app = document.getElementById('app');
+  const showTabBar = SCREENS_WITH_TABBAR.has(id);
+  document.getElementById('tab-bar').classList.toggle('show', showTabBar);
+  app.classList.toggle('has-tabbar', showTabBar);
+  if (showTabBar) {
+    const tabName = Object.keys(TABBED_SCREENS).find(k => TABBED_SCREENS[k] === id);
+    setActiveTabUI(tabName);
+  }
+  refreshSoundToggleUI();
+}
+
+let activeTab = 'home';
+
+function setActiveTabUI(tabName) {
+  activeTab = tabName;
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  const map = { home: 'tab-btn-home', 'play-select': 'tab-btn-play', collection: 'tab-btn-collection' };
+  const btn = document.getElementById(map[tabName]);
+  if (btn) btn.classList.add('active');
+}
+
+// J6: タブ切替（ホーム/あそぶ/コレクション）。切替にtap音を鳴らす
+function goToTab(tabName) {
+  sfx.tap();
+  if (tabName === 'home') {
+    renderHome();
+  } else if (tabName === 'play-select') {
+    renderPlaySelect();
+  } else if (tabName === 'collection') {
+    renderCollection();
+  }
 }
 
 // ==================== 起動処理 ====================
@@ -66,7 +260,7 @@ function boot() {
   if (!save.onboarded) {
     startIntro();
   } else {
-    goToModes();
+    renderHome();
   }
 }
 
@@ -94,6 +288,8 @@ function renderIntroQuestion() {
 }
 
 function answerIntro(i) {
+  sfx.correct(1);
+  haptics.correct();
   introIndex++;
   if (introIndex < INTRO_QUESTIONS.length) {
     renderIntroQuestion();
@@ -135,6 +331,229 @@ function getRank(totalCorrect) {
     else { next = rank; break; }
   }
   return { current, next };
+}
+
+// ==================== L4: 語録カードコレクション ====================
+const CARD_CATEGORIES = new Set(['quotes', 'style']);
+
+function isCardEligible(q) {
+  return q && CARD_CATEGORIES.has(q.category);
+}
+
+function cardPool() {
+  return QUIZ_DATA.filter(isCardEligible);
+}
+
+function cardTextFor(q) {
+  return q.choices[q.answerIndex];
+}
+
+// 正解時に呼ぶ。初解放なら解放してtrueを返す（リザルトの「語録カードGET」表示判定用）
+function tryUnlockCard(q) {
+  if (!isCardEligible(q)) return false;
+  if (save.cards[q.id]) return false;
+  save.cards[q.id] = localDateString();
+  writeSave(save);
+  return true;
+}
+
+function renderQuoteCardGrid() {
+  const grid = document.getElementById('quote-card-grid');
+  const progressEl = document.getElementById('card-progress-text');
+  if (!grid) return;
+  const pool = cardPool();
+  const unlockedCount = pool.filter(q => save.cards[q.id]).length;
+  if (progressEl) progressEl.textContent = `${unlockedCount}/${pool.length}枚`;
+
+  grid.innerHTML = '';
+  pool.forEach(q => {
+    const cell = document.createElement('div');
+    const unlocked = !!save.cards[q.id];
+    if (unlocked) {
+      cell.className = 'quote-card' + (q.difficulty >= 4 ? ' shiny' : '');
+      cell.textContent = cardTextFor(q);
+      cell.onclick = () => toggleCardExpand(cell);
+    } else {
+      cell.className = 'quote-card locked';
+      cell.textContent = '？？？';
+    }
+    grid.appendChild(cell);
+  });
+}
+
+function toggleCardExpand(cell) {
+  const wasExpanded = cell.classList.contains('expanded');
+  document.querySelectorAll('.quote-card.expanded').forEach(c => c.classList.remove('expanded'));
+  if (!wasExpanded) cell.classList.add('expanded');
+}
+
+// ==================== L5: ささポイント＋着せ替え ====================
+const OUTFITS = [
+  { id: 'hat', emoji: '🎓', name: 'はかせ帽', cost: 30 },
+  { id: 'ribbon', emoji: '🎀', name: 'リボン', cost: 50 },
+  { id: 'flower', emoji: '🌸', name: 'お花', cost: 80 },
+  { id: 'crown', emoji: '👑', name: 'クラウン', cost: 150 },
+  { id: 'sasakanzashi', emoji: '🎋', name: '笹かんざし', cost: 100 }
+];
+
+// 正解1問=1、コンボ3以上の正解=2 のささ加算
+function awardSasa(combo) {
+  const amount = (combo && combo >= 3) ? 2 : 1;
+  save.sasa += amount;
+  writeSave(save);
+}
+
+function renderOutfitGrid() {
+  const grid = document.getElementById('outfit-grid');
+  if (!grid) return;
+  save.unlockedOutfits = save.unlockedOutfits || {};
+  grid.innerHTML = '';
+  OUTFITS.forEach(o => {
+    const cell = document.createElement('div');
+    const unlocked = !!save.unlockedOutfits[o.id];
+    const equipped = save.outfit === o.id;
+    if (equipped) {
+      cell.className = 'outfit-cell equipped';
+      cell.innerHTML = `<span class="outfit-emoji">${o.emoji}</span>${o.name}<div class="outfit-cost">装着中</div>`;
+    } else if (unlocked) {
+      cell.className = 'outfit-cell';
+      cell.innerHTML = `<span class="outfit-emoji">${o.emoji}</span>${o.name}<div class="outfit-cost">タップで装着</div>`;
+    } else {
+      cell.className = 'outfit-cell locked';
+      const remain = Math.max(0, o.cost - save.sasa);
+      cell.innerHTML = `<span class="outfit-emoji">${o.emoji}</span>${o.name}<div class="outfit-cost">${remain > 0 ? `あと${remain}🎋` : `${o.cost}🎋`}</div>`;
+    }
+    cell.onclick = () => onOutfitCellTap(o);
+    grid.appendChild(cell);
+  });
+}
+
+function onOutfitCellTap(outfit) {
+  save.unlockedOutfits = save.unlockedOutfits || {};
+  const unlocked = !!save.unlockedOutfits[outfit.id];
+
+  if (!unlocked) {
+    if (save.sasa < outfit.cost) {
+      renderOutfitGrid(); // あと◯🎋表示のまま。特に何もしない
+      return;
+    }
+    save.sasa -= outfit.cost;
+    save.unlockedOutfits[outfit.id] = true;
+    save.outfit = outfit.id;
+    writeSave(save);
+    sfx.fanfare();
+    spawnOutfitConfetti();
+    renderOutfitGrid();
+    renderSasaBalance();
+    return;
+  }
+
+  // 解放済み：装着中なら外す、そうでなければ付け替え
+  save.outfit = (save.outfit === outfit.id) ? null : outfit.id;
+  writeSave(save);
+  sfx.tap();
+  renderOutfitGrid();
+}
+
+function spawnOutfitConfetti() {
+  const app = document.getElementById('app');
+  const grid = document.getElementById('outfit-grid');
+  if (!app || !grid) return;
+  const rect = grid.getBoundingClientRect();
+  const appRect = app.getBoundingClientRect();
+  const layer = document.createElement('div');
+  layer.className = 'celebration-layer';
+  app.appendChild(layer);
+  spawnBurst(layer, (rect.left + rect.right) / 2 - appRect.left, rect.top - appRect.top + 20, true, 0);
+  setTimeout(() => layer.remove(), 1000);
+}
+
+// ==================== L6: パンダさんおみくじ ====================
+function omikujiDoneToday() {
+  return !!(save.omikuji && save.omikuji.date === localDateString());
+}
+
+function renderOmikujiCard() {
+  const btn = document.getElementById('omikuji-draw-btn');
+  const resultBox = document.getElementById('omikuji-result');
+  const rollingEl = document.getElementById('omikuji-rolling');
+  rollingEl.style.display = 'none';
+
+  if (omikujiDoneToday()) {
+    btn.style.display = 'none';
+    resultBox.style.display = 'block';
+    showOmikujiResult(save.omikuji.rankIndex, false);
+  } else {
+    btn.style.display = 'inline-block';
+    btn.disabled = false;
+    resultBox.style.display = 'none';
+  }
+}
+
+function drawOmikuji() {
+  if (omikujiDoneToday()) return;
+  const btn = document.getElementById('omikuji-draw-btn');
+  const rollingEl = document.getElementById('omikuji-rolling');
+  const resultBox = document.getElementById('omikuji-result');
+
+  btn.disabled = true;
+  btn.style.display = 'none';
+  resultBox.style.display = 'none';
+  rollingEl.style.display = 'block';
+  sfx.drumroll();
+  haptics.correct();
+
+  setTimeout(() => {
+    rollingEl.style.display = 'none';
+    const rankIndex = Math.floor(Math.random() * MEI_CONTENT.omikuji.length);
+    save.omikuji = { date: localDateString(), rankIndex };
+    writeSave(save);
+    resultBox.style.display = 'block';
+    showOmikujiResult(rankIndex, true);
+  }, 900);
+}
+
+function showOmikujiResult(rankIndex, isFreshDraw) {
+  const entry = MEI_CONTENT.omikuji[rankIndex];
+  const message = pickRandom(entry.messages);
+  document.getElementById('omikuji-rank').textContent = entry.rank;
+  document.getElementById('omikuji-message').textContent = message;
+  document.getElementById('omikuji-lucky').textContent = `ラッキーアイテム: ${entry.luckyItem}`;
+  document.getElementById('omikuji-done-msg').textContent = `今日は${entry.rank}だったよ！また明日ね🐼`;
+
+  // 上位ランク（前半3つ）は紙吹雪＋ファンファーレ
+  const isTopRank = rankIndex < 3;
+  if (isFreshDraw) {
+    if (isTopRank) {
+      sfx.fanfare();
+      haptics.celebrate();
+      spawnOmikujiConfetti();
+    } else {
+      sfx.sparkle();
+    }
+  }
+}
+
+function spawnOmikujiConfetti() {
+  const app = document.getElementById('app');
+  const card = document.querySelector('.omikuji-card');
+  if (!app || !card) return;
+  const rect = card.getBoundingClientRect();
+  const appRect = app.getBoundingClientRect();
+  const layer = document.createElement('div');
+  layer.className = 'celebration-layer';
+  app.appendChild(layer);
+  spawnBurst(layer, (rect.left + rect.right) / 2 - appRect.left, rect.top - appRect.top + 30, true, 0);
+  setTimeout(() => layer.remove(), 1000);
+}
+
+function shareOmikuji() {
+  if (!save.omikuji) return;
+  const entry = MEI_CONTENT.omikuji[save.omikuji.rankIndex];
+  const text = `愛生博士のパンダさんおみくじ🎋 今日の運勢は【${entry.rank}】でした🐼\n#愛生博士クイズ #山﨑愛生`;
+  const url = location.href.split('?')[0].split('#')[0];
+  const intent = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(url);
+  window.open(intent, '_blank', 'noopener');
 }
 
 // ==================== R2: パンダさんバッジコレクション ====================
@@ -214,15 +633,249 @@ function renderRank(titleElId, progressElId) {
   }
 }
 
-// ==================== モード選択画面 ====================
+// ==================== J6: ホーム／あそぶ／コレクション タブ ====================
+
+// 後方互換：旧コードやonclick属性から呼ばれても壊れないようホームへ委譲する
 function goToModes() {
-  document.getElementById('modes-greeting').textContent = `おかえり、${save.nickname}！`;
+  goToTab('home');
+}
+
+function renderHome() {
+  const isFirstHomeShowToday = save.lastVisitDate !== localDateString();
+
+  applyPowerDecay();
+  renderGreeting();
+  renderAnniversaryBanner(isFirstHomeShowToday);
+  renderPowerGauge();
+  renderMascotOutfit();
+  document.getElementById('home-streak').textContent = save.streak.count;
+  renderRank('home-rank', 'home-rank-progress');
+  renderDailyCard();
+  renderOmikujiCard();
+
+  save.lastVisitDate = localDateString();
+  writeSave(save);
+
+  showScreen('screen-home');
+}
+
+// ==================== L1: 生きてるマスコット ====================
+function daysBetween(dateStrA, dateStrB) {
+  const a = new Date(dateStrA + 'T00:00:00');
+  const b = new Date(dateStrB + 'T00:00:00');
+  return Math.round((b - a) / 86400000);
+}
+
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function getTimeBand() {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 11) return 'morning';
+  if (h >= 11 && h < 17) return 'daytime';
+  if (h >= 17 && h < 22) return 'evening';
+  return 'night';
+}
+
+// 優先度: 記念日 > 久しぶり歓迎 > 時間帯あいさつ
+function renderGreeting() {
+  const el = document.getElementById('home-greeting');
+  const todayAnniv = getTodaysAnniversary();
+  const namePrefix = save.nickname ? `${save.nickname}、` : '';
+
+  if (todayAnniv) {
+    el.textContent = todayAnniv.message;
+    return;
+  }
+
+  const today = localDateString();
+  const last = save.streak.lastPlayedDate;
+  if (last && daysBetween(last, today) >= 3) {
+    el.textContent = namePrefix + pickRandom(MEI_CONTENT.welcomeBack);
+    return;
+  }
+
+  const band = getTimeBand();
+  el.textContent = namePrefix + pickRandom(MEI_CONTENT.greetings[band]);
+}
+
+let mascotTapCount = 0;
+let mascotTapResetTimer = null;
+
+function showMascotBubble(text) {
+  const bubble = document.getElementById('mascot-bubble');
+  bubble.textContent = text;
+  bubble.classList.remove('show');
+  void bubble.offsetWidth;
+  bubble.classList.add('show');
+  clearTimeout(showMascotBubble._hideTimer);
+  showMascotBubble._hideTimer = setTimeout(() => bubble.classList.remove('show'), 2500);
+}
+
+function bounceMascot() {
+  const img = document.getElementById('home-mascot-img');
+  img.classList.remove('bounce');
+  void img.offsetWidth;
+  img.classList.add('bounce');
+}
+
+// L1: マスコットタップ（連打で隠しセリフ・sfx・紙吹雪）
+function tapMascot() {
+  mascotTapCount++;
+  clearTimeout(mascotTapResetTimer);
+  // 一定時間タップが無ければ連打カウントをリセット（セッション内の「連続」タップ想定）
+  mascotTapResetTimer = setTimeout(() => { mascotTapCount = 0; }, 4000);
+
+  bounceMascot();
+  sfx.tap();
+  haptics.correct();
+
+  if (mascotTapCount === 10) {
+    showMascotBubble(pickRandom(MEI_CONTENT.tapSecret10));
+    sfx.sparkle();
+    spawnMascotSparkle();
+    return;
+  }
+  if (mascotTapCount === 30) {
+    showMascotBubble(pickRandom(MEI_CONTENT.tapSecret30));
+    sfx.sparkle();
+    spawnMascotSparkle();
+    return;
+  }
+  showMascotBubble(pickRandom(MEI_CONTENT.tapReactions));
+}
+
+function spawnMascotSparkle() {
+  const wrap = document.getElementById('mascot-live-wrap');
+  const app = document.getElementById('app');
+  if (!wrap || !app) return;
+  const wrapRect = wrap.getBoundingClientRect();
+  const appRect = app.getBoundingClientRect();
+  const layer = document.createElement('div');
+  layer.className = 'celebration-layer';
+  app.appendChild(layer);
+  const x = (wrapRect.left + wrapRect.right) / 2 - appRect.left;
+  const y = (wrapRect.top + wrapRect.bottom) / 2 - appRect.top;
+  spawnBurst(layer, x, y, true, 0);
+  setTimeout(() => layer.remove(), 1000);
+}
+
+// ==================== L3: 記念日システム ====================
+function getTodaysAnniversary() {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const day = now.getDate();
+  return MEI_CONTENT.anniversaries.find(a => a.month === month && a.day === day) || null;
+}
+
+function renderAnniversaryBanner(isFirstHomeShowToday) {
+  const banner = document.getElementById('anniversary-banner');
+  const anniv = getTodaysAnniversary();
+  if (!anniv) {
+    banner.style.display = 'none';
+    return;
+  }
+  document.getElementById('anniversary-deco').textContent = anniv.decoration;
+  document.getElementById('anniversary-label').textContent = anniv.label;
+  document.getElementById('anniversary-message').textContent = anniv.message;
+  banner.style.display = 'block';
+
+  // 1日1回・ホーム初回表示時のみファンファーレ
+  const today = localDateString();
+  if (isFirstHomeShowToday && save.anniversarySeenDate !== today) {
+    save.anniversarySeenDate = today;
+    writeSave(save);
+    sfx.fanfare();
+  }
+}
+
+// ==================== L2: パンダさんパワーゲージ ====================
+const POWER_MAX = 100;
+const POWER_MIN_FLOOR = 10;
+const POWER_DAILY_DECAY = 35;
+const POWER_SESSION_BONUS = 30;
+const POWER_DAILY3_BONUS = 40;
+
+// 日付が変わるごとに-35（最低10で下げ止まり）。何日分空いても一度だけ計算する
+function applyPowerDecay() {
+  const today = localDateString();
+  if (!save.power.lastDate) {
+    save.power.lastDate = today;
+    writeSave(save);
+    return;
+  }
+  if (save.power.lastDate === today) return;
+
+  const gapDays = Math.max(1, daysBetween(save.power.lastDate, today));
+  save.power.value = Math.max(POWER_MIN_FLOOR, save.power.value - POWER_DAILY_DECAY * gapDays);
+  save.power.lastDate = today;
+  writeSave(save);
+}
+
+function addPower(amount) {
+  const today = localDateString();
+  const wasFull = save.power.value >= POWER_MAX;
+  save.power.value = Math.min(POWER_MAX, save.power.value + amount);
+  save.power.lastDate = today;
+  writeSave(save);
+  return !wasFull && save.power.value >= POWER_MAX;
+}
+
+function renderPowerGauge() {
+  const bar = document.getElementById('power-gauge-bar');
+  const valueEl = document.getElementById('power-gauge-value');
+  const commentEl = document.getElementById('power-gauge-comment');
+  const v = save.power.value;
+  bar.style.width = v + '%';
+  valueEl.textContent = `${v}/${POWER_MAX}`;
+
+  let band;
+  if (v >= 70) band = 'full';
+  else if (v >= 30) band = 'mid';
+  else band = 'low';
+  commentEl.textContent = pickRandom(MEI_CONTENT.powerGauge[band]);
+}
+
+function celebratePowerFull() {
+  const bar = document.getElementById('power-gauge-bar');
+  bar.classList.remove('is-full');
+  void bar.offsetWidth;
+  bar.classList.add('is-full');
+  sfx.sparkle();
+}
+
+// ==================== L5: 着せ替え（マスコットへの反映） ====================
+function renderMascotOutfit() {
+  const el = document.getElementById('mascot-outfit');
+  const outfit = OUTFITS.find(o => o.id === save.outfit);
+  if (outfit) {
+    el.textContent = outfit.emoji;
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+function renderPlaySelect() {
   document.getElementById('modes-best-timeattack').textContent = save.highScores.timeAttack;
   document.getElementById('modes-best-endless').textContent = save.highScores.endless;
   document.getElementById('modes-streak').textContent = save.streak.count;
-  renderRank('modes-rank', 'modes-rank-progress');
-  renderDailyCard();
-  showScreen('screen-modes');
+  showScreen('screen-play-select');
+}
+
+function renderCollection() {
+  renderBadgeGrid('badge-grid-correct-home', CORRECT_BADGES, min => `累計${min}問正解で解放`);
+  renderBadgeGrid('badge-grid-streak-home', STREAK_BADGES, min => `連続${min}日プレイで解放`);
+  renderSasaBalance();
+  renderQuoteCardGrid();
+  renderOutfitGrid();
+  showScreen('screen-collection');
+}
+
+function renderSasaBalance() {
+  const el = document.getElementById('collection-sasa-value');
+  if (el) el.textContent = save.sasa;
 }
 
 function renderDailyCard() {
@@ -357,6 +1010,9 @@ function reviewPool() {
   return [...wrongOnes, ...pickQuestions(rest, Math.max(0, 10 - wrongOnes.length))];
 }
 
+// J3: コンボ加点対象モード（学習モードは対象外）
+const COMBO_ENABLED_MODES = new Set(['timeAttack', 'endless', 'daily']);
+
 function startMode(mode) {
   session = {
     mode,
@@ -368,7 +1024,10 @@ function startMode(mode) {
     questions: [],
     timerHandle: null,
     clockHandle: null,
-    remainingClock: TIME_ATTACK_SECONDS
+    remainingClock: TIME_ATTACK_SECONDS,
+    combo: 0,
+    comboEnabled: COMBO_ENABLED_MODES.has(mode),
+    newCards: []
   };
 
   if (mode === 'timeAttack') {
@@ -425,9 +1084,14 @@ function renderQuestion() {
   session.locked = false;
 
   document.getElementById('play-category').textContent = categoryLabel(q.category);
-  document.getElementById('play-question').textContent = q.question;
+  const qEl = document.getElementById('play-question');
+  qEl.textContent = q.question;
+  qEl.classList.remove('shake');
   document.getElementById('play-feedback').textContent = '';
   document.getElementById('play-feedback').className = 'feedback';
+  const comboEl = document.getElementById('combo-display');
+  comboEl.classList.remove('show');
+  comboEl.style.display = 'none';
 
   const progressText = session.mode === 'endless'
     ? `連続正解 ${session.correctCount}問目`
@@ -496,40 +1160,119 @@ function answerQuestion(choiceIndex) {
   if (correct) session.correctCount++;
   if (session.mode === 'daily') session.dailyResults.push(correct);
 
-  recordAnswerResult(q, correct);
+  const newCardUnlocked = recordAnswerResult(q, correct, session.comboEnabled ? (session.combo || 0) + (correct ? 1 : 0) : 0);
+  if (newCardUnlocked) {
+    session.newCards = session.newCards || [];
+    session.newCards.push(q);
+  }
+
+  // J3: コンボ更新（対象モードのみ。正解+1、不正解/時間切れは0に戻る）
+  if (session.comboEnabled) {
+    if (correct) {
+      session.combo = (session.combo || 0) + 1;
+    } else {
+      session.combo = 0;
+    }
+  }
 
   const feedbackEl = document.getElementById('play-feedback');
-  feedbackEl.textContent = correct ? correctFlavorText() : q.wrongComment;
+  feedbackEl.textContent = correct ? correctFlavorText(session.combo) : q.wrongComment;
   feedbackEl.className = 'feedback ' + (correct ? 'feedback-correct' : 'feedback-wrong');
 
   document.querySelectorAll('#play-choices .choice-btn').forEach((btn, i) => {
     btn.disabled = true;
-    if (session.shuffledChoices[i].isCorrect) btn.classList.add('is-correct');
+    if (session.shuffledChoices[i].isCorrect) {
+      btn.classList.add('is-correct');
+      if (correct) btn.classList.add('glow'); // J5: 正解ボタンがふわっと光る
+    }
     if (i === choiceIndex && !correct) btn.classList.add('is-wrong');
   });
+
+  const playScreen = document.getElementById('screen-play');
+  if (correct) {
+    sfx.correct(session.combo);
+    haptics.correct();
+    if (session.comboEnabled && session.combo >= 2) {
+      showComboDisplay(session.combo);
+    }
+    if (session.comboEnabled && session.combo >= 3) {
+      // 3コンボ以上の正解は軽いフラッシュ＋紙吹雪
+      playScreen.classList.remove('screen-flash');
+      void playScreen.offsetWidth;
+      playScreen.classList.add('screen-flash');
+      const rect = playScreen.getBoundingClientRect();
+      const appRect = document.getElementById('app').getBoundingClientRect();
+      const layer = document.createElement('div');
+      layer.className = 'celebration-layer';
+      document.getElementById('app').appendChild(layer);
+      spawnBurst(layer, (rect.left + rect.right) / 2 - appRect.left, 120, true, 0);
+      setTimeout(() => layer.remove(), 1000);
+    }
+  } else {
+    sfx.wrong();
+    haptics.wrong();
+    // J5: 不正解時の問題カードプルプル
+    const qEl = document.getElementById('play-question');
+    qEl.classList.remove('shake');
+    void qEl.offsetWidth;
+    qEl.classList.add('shake');
+  }
 
   setTimeout(() => advance(correct), 1100);
 }
 
-const CORRECT_FLAVORS = [
+// J3: コンボ表示「🔥N COMBO!」。数字が大きいほど文字サイズ・色を豪華にする
+function showComboDisplay(combo) {
+  const el = document.getElementById('combo-display');
+  const scale = Math.min(1.8, 1 + (combo - 2) * 0.12);
+  el.style.fontSize = (26 * scale) + 'px';
+  el.style.color = combo >= 7 ? 'var(--wrong)' : (combo >= 4 ? 'var(--gold)' : 'var(--mei)');
+  el.textContent = `🔥${combo} COMBO!`;
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.style.display = 'block';
+  el.classList.add('show');
+}
+
+// 正解フィードバック文言：コンボ段階に応じてどんどん豪華にする
+const CORRECT_FLAVORS_BASE = [
   'パンダさんパワーMAXです！正解〜！',
   'ウルトラパンダさんパワーMAX！大正解！',
   'どさんこパンダさんパワーMAXで正解〜！',
   'スペシャルパンダさんパワーMAX！やったね！',
   'と〜〜っても正解！パンダさんパワー充電中です🐼'
 ];
-function correctFlavorText() {
-  return CORRECT_FLAVORS[Math.floor(Math.random() * CORRECT_FLAVORS.length)];
+const COMBO_FLAVORS = {
+  2: ['その調子〜！2連続正解だよ！🐼'],
+  3: ['なまら すごい！3連続正解！パンダさんパワー上昇中〜！'],
+  4: ['どさんこパンダさんパワー全開！4連続正解〜！！'],
+  5: ['ウルトラパンダさんパワー発動！5連続正解、と〜っても すごい！！'],
+  6: ['スペシャルどさんこパンダさんパワーMAX！！6連続正解だよ〜！！']
+};
+function correctFlavorText(combo) {
+  if (combo && combo >= 7) {
+    return 'どさんこウルトラスペシャルパンダさんパワーMAX！！';
+  }
+  if (combo && COMBO_FLAVORS[combo]) {
+    return COMBO_FLAVORS[combo][0];
+  }
+  return CORRECT_FLAVORS_BASE[Math.floor(Math.random() * CORRECT_FLAVORS_BASE.length)];
 }
 
-function recordAnswerResult(q, correct) {
+// 戻り値：この解答で語録カードが新規解放されたかどうか
+function recordAnswerResult(q, correct, comboAtAnswer) {
   save.totalStats.totalAnswered++;
+  let newCardUnlocked = false;
   if (correct) {
     save.totalStats.totalCorrect++;
     if (save.wrongQuestions[q.id]) {
       // 復習で正解できたら履歴から軽くする
       delete save.wrongQuestions[q.id];
     }
+    // L5: ささポイント付与（正解1問=1、コンボ3以上の正解=2）
+    awardSasa(comboAtAnswer);
+    // L4: 語録カード解放判定（quotes/style正解のみ）
+    newCardUnlocked = tryUnlockCard(q);
   } else {
     const today = new Date().toISOString().slice(0, 10);
     const existing = save.wrongQuestions[q.id];
@@ -539,6 +1282,7 @@ function recordAnswerResult(q, correct) {
     };
   }
   writeSave(save);
+  return newCardUnlocked;
 }
 
 function advance(lastWasCorrect) {
@@ -579,6 +1323,7 @@ function advance(lastWasCorrect) {
 function endSession() {
   clearQuestionTimer();
   if (session.clockHandle) clearInterval(session.clockHandle);
+  session.combo = 0; // J3: セッション終了でコンボをリセット
 
   const reachedMilestone = updateStreakOnPlay();
 
@@ -613,69 +1358,25 @@ function endSession() {
   }
 
   document.getElementById('result-mode-label').textContent = label;
-  document.getElementById('result-score').textContent = `${score} / ${session.answeredCount}問`;
   document.getElementById('result-best-wrap').style.display = bestKey ? 'block' : 'none';
   if (bestKey) {
     document.getElementById('result-best').textContent = save.highScores[bestKey];
   }
-  document.getElementById('result-newbest').style.display = isNewBest ? 'block' : 'none';
   document.getElementById('result-streak').textContent = save.streak.count;
   document.getElementById('result-rank').textContent = `現在のランク：${getRank(save.totalStats.totalCorrect).current.title}`;
 
-  // S1: 博士度診断メーター（timeAttack/endlessのみ）
-  const diagnosisEl = document.getElementById('result-diagnosis');
-  const dailyGridEl = document.getElementById('result-daily-grid');
+  // S1: 博士度診断（timeAttack/endlessのみ）の計算
   let diagnosis = null;
   if (session.mode === 'timeAttack' || session.mode === 'endless') {
     diagnosis = getDiagnosis(session.mode, score);
-    document.getElementById('result-diagnosis-title').textContent = diagnosis.title;
-    document.getElementById('result-diagnosis-comment').textContent = diagnosis.comment;
-    document.getElementById('result-diagnosis-percent').textContent = `博士度 ${diagnosis.percent}%`;
-    const bar = document.getElementById('result-meter-bar');
-    bar.classList.toggle('is-max', diagnosis.percent >= 100);
-    bar.style.width = '0%';
-    // アニメーションでバーが伸びるよう、描画後に幅を反映する
-    // （バックグラウンドタブ等でrequestAnimationFrameが発火しない環境向けにsetTimeoutも併用）
-    let meterFilled = false;
-    const fillMeter = () => {
-      if (meterFilled) return;
-      meterFilled = true;
-      bar.style.width = diagnosis.percent + '%';
-    };
-    requestAnimationFrame(() => requestAnimationFrame(fillMeter));
-    setTimeout(fillMeter, 120);
-    diagnosisEl.style.display = 'block';
-    dailyGridEl.style.display = 'none';
-  } else if (session.mode === 'daily') {
-    const emojis = session.dailyResults.map(ok => ok ? '🐼' : '⬜').join('');
-    const correctCount = session.dailyResults.filter(Boolean).length;
-    document.getElementById('result-daily-emojis').textContent = emojis;
-    document.getElementById('result-daily-score').textContent = `${correctCount}/${session.dailyResults.length}`;
-    dailyGridEl.style.display = 'block';
-    diagnosisEl.style.display = 'none';
-  } else {
-    diagnosisEl.style.display = 'none';
-    dailyGridEl.style.display = 'none';
   }
 
-  // R1: ストリーク節目バッジ
-  const streakBadgeEl = document.getElementById('result-streak-badge');
-  if (reachedMilestone) {
-    streakBadgeEl.textContent = `🎉 連続${reachedMilestone}日達成！`;
-    streakBadgeEl.style.display = 'block';
-  } else {
-    streakBadgeEl.style.display = 'none';
-  }
-
-  // R2: 新バッジ解放判定（累計正解数・ストリーク数を見るのでスコア確定後に実行）
+  // R1/R2: ストリーク節目・新バッジ解放判定（スコア確定後に実行）
   const newBadges = evaluateNewBadges();
-  const newBadgeEl = document.getElementById('result-newbadge');
-  if (newBadges.length) {
-    newBadgeEl.innerHTML = newBadges.map(b => `🆕 新バッジ解放！【${b.emoji} ${b.name}】`).join('<br>');
-    newBadgeEl.style.display = 'block';
-  } else {
-    newBadgeEl.style.display = 'none';
-  }
+
+  // L2: パンダさんパワーゲージ加算（1セッション完了+30、今日の3問完了+40、上限100）
+  const powerBonus = session.mode === 'daily' ? POWER_DAILY3_BONUS : POWER_SESSION_BONUS;
+  const becameFull = addPower(powerBonus);
 
   lastResult = {
     mode: session.mode,
@@ -690,7 +1391,127 @@ function endSession() {
   showScreen('screen-result');
   currentSessionMode = session.mode;
 
-  if (isNewBest || reachedMilestone) celebrate();
+  playResultSequence({
+    score,
+    answeredCount: session.answeredCount,
+    bestKey,
+    isNewBest,
+    diagnosis,
+    dailyResults: session.mode === 'daily' ? session.dailyResults : null,
+    reachedMilestone,
+    newBadges,
+    newCards: session.newCards || [],
+    becameFull
+  });
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+// J4: リザルト演出 (1)ドラムロール＋スコアカウントアップ → (2)ファンファーレ＋称号・メーター → (3)バッジ等スライドイン
+function playResultSequence(r) {
+  const scoreEl = document.getElementById('result-score');
+  const diagnosisEl = document.getElementById('result-diagnosis');
+  const dailyGridEl = document.getElementById('result-daily-grid');
+  const newBestEl = document.getElementById('result-newbest');
+  const streakBadgeEl = document.getElementById('result-streak-badge');
+  const newBadgeEl = document.getElementById('result-newbadge');
+  const newCardEl = document.getElementById('result-newcard');
+
+  // 続く演出のために一旦すべて隠す
+  diagnosisEl.style.display = 'none';
+  dailyGridEl.style.display = 'none';
+  newBestEl.style.display = 'none';
+  streakBadgeEl.style.display = 'none';
+  newBadgeEl.style.display = 'none';
+  newCardEl.style.display = 'none';
+  [diagnosisEl, dailyGridEl, newBestEl, streakBadgeEl, newBadgeEl, newCardEl].forEach(el => el.classList.remove('result-slide-in'));
+
+  const finalScoreText = `${r.score} / ${r.answeredCount}問`;
+
+  const showTitleAndBadges = () => {
+    if (r.diagnosis) {
+      document.getElementById('result-diagnosis-title').textContent = r.diagnosis.title;
+      document.getElementById('result-diagnosis-comment').textContent = r.diagnosis.comment;
+      document.getElementById('result-diagnosis-percent').textContent = `博士度 ${r.diagnosis.percent}%`;
+      const bar = document.getElementById('result-meter-bar');
+      bar.classList.toggle('is-max', r.diagnosis.percent >= 100);
+      bar.style.width = '0%';
+      diagnosisEl.style.display = 'block';
+      let meterFilled = false;
+      const fillMeter = () => {
+        if (meterFilled) return;
+        meterFilled = true;
+        bar.style.width = r.diagnosis.percent + '%';
+      };
+      requestAnimationFrame(() => requestAnimationFrame(fillMeter));
+      setTimeout(fillMeter, 120);
+    } else if (r.dailyResults) {
+      const emojis = r.dailyResults.map(ok => ok ? '🐼' : '⬜').join('');
+      const correctCount = r.dailyResults.filter(Boolean).length;
+      document.getElementById('result-daily-emojis').textContent = emojis;
+      document.getElementById('result-daily-score').textContent = `${correctCount}/${r.dailyResults.length}`;
+      dailyGridEl.style.display = 'block';
+    }
+    sfx.fanfare();
+    if (r.isNewBest || r.reachedMilestone) haptics.celebrate();
+  };
+
+  const showFollowUps = () => {
+    if (r.isNewBest) {
+      newBestEl.style.display = 'block';
+      newBestEl.classList.add('result-slide-in');
+    }
+    if (r.reachedMilestone) {
+      streakBadgeEl.textContent = `🎉 連続${r.reachedMilestone}日達成！`;
+      streakBadgeEl.style.display = 'block';
+      streakBadgeEl.classList.add('result-slide-in');
+    }
+    if (r.newBadges && r.newBadges.length) {
+      newBadgeEl.innerHTML = r.newBadges.map(b => `🆕 新バッジ解放！【${b.emoji} ${b.name}】`).join('<br>');
+      newBadgeEl.style.display = 'block';
+      newBadgeEl.classList.add('result-slide-in');
+      sfx.sparkle();
+    }
+    if (r.newCards && r.newCards.length) {
+      newCardEl.innerHTML = '🃏 語録カードGET！';
+      newCardEl.style.display = 'block';
+      newCardEl.classList.add('result-slide-in');
+      sfx.sparkle();
+    }
+    if (r.becameFull) {
+      celebratePowerFull();
+    }
+    if (r.isNewBest || r.reachedMilestone) celebrate();
+  };
+
+  if (prefersReducedMotion()) {
+    scoreEl.textContent = finalScoreText;
+    showTitleAndBadges();
+    showFollowUps();
+    return;
+  }
+
+  // (1) ドラムロール＋スコア0→実スコアのカウントアップ（約0.8秒）
+  sfx.drumroll();
+  const duration = 800;
+  const startTime = performance.now();
+  function tickCount(now) {
+    const t = Math.min(1, (now - startTime) / duration);
+    const shown = Math.round(r.score * t);
+    scoreEl.textContent = `${shown} / ${r.answeredCount}問`;
+    if (t < 1) {
+      requestAnimationFrame(tickCount);
+    } else {
+      scoreEl.textContent = finalScoreText;
+      // (2) ファンファーレ＋称号・博士度メーターがポン
+      showTitleAndBadges();
+      // (3) バッジ等が続けてスライドイン
+      setTimeout(showFollowUps, 450);
+    }
+  }
+  requestAnimationFrame(tickCount);
 }
 
 // ==================== 自己ベスト更新エフェクト（パン・パン・シャラララ〜ん） ====================
@@ -850,15 +1671,15 @@ function shareToX() {
 
 function playAgain() {
   if (currentSessionMode === 'daily') {
-    // 今日の1問は1日1回。「もう1回」はモード選択に戻す
-    goToModes();
+    // 今日の1問は1日1回。「もう1回」はホームタブに戻す
+    renderHome();
     return;
   }
   startMode(currentSessionMode);
 }
 
 function backToModes() {
-  goToModes();
+  renderPlaySelect();
 }
 
 // R1: ストリーク節目
@@ -915,10 +1736,21 @@ function renderBadgeGrid(elId, badgeList, hintFor) {
   });
 }
 
+// 後方互換：旧コードから呼ばれてもコレクションタブに委譲する（J6でscreen-badgesはコレクションタブに統合済み）
 function openBadges() {
-  renderBadgeGrid('badge-grid-correct', CORRECT_BADGES, min => `累計${min}問正解で解放`);
-  renderBadgeGrid('badge-grid-streak', STREAK_BADGES, min => `連続${min}日プレイで解放`);
-  showScreen('screen-badges');
+  renderCollection();
 }
+
+// ==================== J1: ボタンtapポップ音（イベント委任で一括対応） ====================
+// choice-btn（クイズ選択肢）は正解/不正解音が別途鳴るためtap音の対象から除外する
+const TAP_SOUND_SELECTOR = '.primary-btn, .share-btn, .secondary-btn, .mode-card, .home-daily-cta, .callresponse-btn, .sound-toggle-btn, .blog-link-btn, .back-link';
+document.addEventListener('click', (e) => {
+  const el = e.target.closest(TAP_SOUND_SELECTOR);
+  if (!el || el.disabled) return;
+  // サウンドトグル自身はtoggleSound()内で個別に音を鳴らすため二重再生を避ける
+  if (el.classList.contains('sound-toggle-btn')) return;
+  sfx.tap();
+});
+// タブボタンはgoToTab()側で既にtap音を鳴らしているためこのリスナーには含めない
 
 boot();
