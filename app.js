@@ -378,7 +378,8 @@ function renderQuoteCardGrid() {
     if (unlocked) {
       cell.className = 'quote-card' + (q.difficulty >= 4 ? ' shiny' : '');
       cell.textContent = cardTextFor(q);
-      cell.onclick = () => toggleCardExpand(cell);
+      // タップで詳細（語録＋解説＋出典）を表示
+      cell.onclick = () => openCardDetail(q);
     } else {
       cell.className = 'quote-card locked';
       cell.textContent = '？？？';
@@ -391,6 +392,39 @@ function toggleCardExpand(cell) {
   const wasExpanded = cell.classList.contains('expanded');
   document.querySelectorAll('.quote-card.expanded').forEach(c => c.classList.remove('expanded'));
   if (!wasExpanded) cell.classList.add('expanded');
+}
+
+// ==================== 語録カード詳細（解説＋出典モーダル） ====================
+function cardSourceLine(q) {
+  // 解説やsourceから「いつのブログか」の手がかり(No.）を拾う
+  const hay = (q.source || '') + ' ' + (q.explanation || '');
+  const noMatch = hay.match(/No\.?\s?(\d{1,4})/);
+  let line = '愛生ちゃんのブログより';
+  if (noMatch) line += `（No.${noMatch[1]} あたり）`;
+  return line;
+}
+
+function openCardDetail(q) {
+  closeCardDetail();
+  const overlay = document.createElement('div');
+  overlay.className = 'card-detail-overlay';
+  overlay.id = 'card-detail-overlay';
+  overlay.onclick = (e) => { if (e.target === overlay) closeCardDetail(); };
+  const shiny = q.difficulty >= 4 ? ' ✨' : '';
+  overlay.innerHTML =
+    '<div class="card-detail">' +
+      '<div class="card-detail-cat">' + categoryLabel(q.category) + 'の語録カード' + shiny + '</div>' +
+      '<div class="card-detail-quote">「' + cardTextFor(q) + '」</div>' +
+      '<div class="card-detail-explain">' + q.explanation + '</div>' +
+      '<div class="card-detail-source">📖 出典：' + cardSourceLine(q) + '</div>' +
+      '<button class="primary-btn" onclick="closeCardDetail()">とじる</button>' +
+    '</div>';
+  document.getElementById('app').appendChild(overlay);
+}
+
+function closeCardDetail() {
+  const o = document.getElementById('card-detail-overlay');
+  if (o) o.remove();
 }
 
 // ==================== L5: ささポイント＋着せ替え ====================
@@ -712,7 +746,9 @@ function getTimeBand() {
 function renderGreeting() {
   const el = document.getElementById('home-greeting');
   const todayAnniv = getTodaysAnniversary();
-  const namePrefix = save.nickname ? `${save.nickname}、` : '';
+  // メイメイは相手を「さん」付けで呼ぶ（パンダさんと同じ）。末尾が「さん」なら二重付けしない
+  const nm = save.nickname;
+  const namePrefix = nm ? `${/さん$/.test(nm) ? nm : nm + 'さん'}、` : '';
 
   if (todayAnniv) {
     el.textContent = todayAnniv.message;
@@ -1141,17 +1177,54 @@ function renderQuestion() {
   session.shuffledChoices = shuffleChoices(q);
   const box = document.getElementById('play-choices');
   box.innerHTML = '';
+  const isStudy = session.mode === 'study';
   session.shuffledChoices.forEach((choice, i) => {
     const btn = document.createElement('button');
     btn.className = 'choice-btn';
     btn.textContent = choice.text;
-    btn.onclick = () => answerQuestion(i);
+    // 学習モードは「選ぶ→こたえあわせ」の2ステップ。それ以外は即判定（従来通り）
+    btn.onclick = isStudy ? (() => selectStudyChoice(i, btn)) : (() => answerQuestion(i));
     box.appendChild(btn);
   });
 
-  if (session.mode !== 'study') {
+  // 学習モードの下部ボタン（こたえあわせ／つづける）の初期化
+  const chkBtn = document.getElementById('study-check-btn');
+  const nextBtn = document.getElementById('study-next-btn');
+  if (isStudy) {
+    session.studySelected = null;
+    if (chkBtn) { chkBtn.style.display = 'block'; chkBtn.disabled = true; chkBtn.textContent = 'こたえあわせ'; }
+    if (nextBtn) nextBtn.style.display = 'none';
+  } else {
+    if (chkBtn) chkBtn.style.display = 'none';
+    if (nextBtn) nextBtn.style.display = 'none';
+  }
+
+  if (!isStudy) {
     startQuestionTimer();
   }
+}
+
+// ---- 学習モード：選択（まだ答え合わせしない） ----
+function selectStudyChoice(index, btn) {
+  if (session.locked) return;
+  session.studySelected = index;
+  document.querySelectorAll('#play-choices .choice-btn').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+  const chkBtn = document.getElementById('study-check-btn');
+  if (chkBtn) chkBtn.disabled = false;
+}
+
+// ---- 学習モード：こたえあわせ（判定＋解説表示） ----
+function studyCheck() {
+  if (session.studySelected == null) return;
+  answerQuestion(session.studySelected);
+}
+
+// ---- 学習モード：つづける（次の問題へ） ----
+function studyNext() {
+  const nextBtn = document.getElementById('study-next-btn');
+  if (nextBtn) nextBtn.style.display = 'none';
+  advance(!!session.lastCorrect);
 }
 
 function shuffleChoices(q) {
@@ -1216,11 +1289,17 @@ function answerQuestion(choiceIndex) {
   }
 
   const feedbackEl = document.getElementById('play-feedback');
-  feedbackEl.textContent = correct ? correctFlavorText(session.combo) : q.wrongComment;
+  // 学習モードは正誤どちらでも「本物の解説」をじっくり読める
+  if (session.mode === 'study') {
+    feedbackEl.textContent = (correct ? '⭕️ 正解！ ' : '❌ ざんねん… ') + q.explanation;
+  } else {
+    feedbackEl.textContent = correct ? correctFlavorText(session.combo) : q.wrongComment;
+  }
   feedbackEl.className = 'feedback ' + (correct ? 'feedback-correct' : 'feedback-wrong');
 
   document.querySelectorAll('#play-choices .choice-btn').forEach((btn, i) => {
     btn.disabled = true;
+    btn.classList.remove('sel'); // 学習モードの選択青を外し、正誤の緑/赤を優先表示
     if (session.shuffledChoices[i].isCorrect) {
       btn.classList.add('is-correct');
       if (correct) btn.classList.add('glow'); // J5: 正解ボタンがふわっと光る
@@ -1258,7 +1337,16 @@ function answerQuestion(choiceIndex) {
     qEl.classList.add('shake');
   }
 
-  setTimeout(() => advance(correct), 1100);
+  // 学習モードは自動で進めず、解説を読んでから「つづける」で次へ
+  if (session.mode === 'study') {
+    session.lastCorrect = correct;
+    const chkBtn = document.getElementById('study-check-btn');
+    if (chkBtn) chkBtn.style.display = 'none';
+    const nextBtn = document.getElementById('study-next-btn');
+    if (nextBtn) { nextBtn.style.display = 'block'; nextBtn.textContent = correct ? 'つづける →' : 'つぎへ →'; }
+  } else {
+    setTimeout(() => advance(correct), 1100);
+  }
 }
 
 // J3: コンボ表示「🔥N COMBO!」。数字が大きいほど文字サイズ・色を豪華にする
