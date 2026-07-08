@@ -13,1084 +13,321 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://fuyutosan.github.io/mei-hakase/assets/ogp-share.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#079C15">
+<meta name="theme-color" content="#58CC02">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --mei: #079C15;
-    --mei-light: #00C853;
-    --paper: #FAFAF5;
-    --ink: #2a2a2a;
-    --wrong: #E53935;
-    --gold: #FFC107;
+  :root{
+    --duo:#58CC02; --duo-d:#4aa802; --duo-l:#d7ffb8;
+    --mei:#079C15; --mei-d:#05730f;
+    --gold:#ffc800; --gold-d:#e6a800;
+    --red:#ff4b4b; --red-l:#ffdfe0; --red-d:#e63a3a;
+    --blue:#1cb0f6; --blue-l:#ddf4ff;
+    --ink:#3c3c3c; --sub:#777; --line:#e5e5e5; --paper:#fff; --bg:#e8f6df;
+  }
+  *{ box-sizing:border-box; margin:0; -webkit-tap-highlight-color:transparent; }
+  @media (prefers-reduced-motion: reduce){ *,*::before,*::after{ animation-duration:.001ms!important; transition-duration:.001ms!important; } }
+  body{
+    font-family:'Noto Sans JP',sans-serif; color:var(--ink);
+    background:var(--bg); background-image:radial-gradient(900px 500px at 50% -12%, #d7ffb8, transparent 70%);
+    min-height:100vh; display:flex; justify-content:center; align-items:flex-start;
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{
+    width:100%; max-width:480px; min-height:100vh; background:var(--paper);
+    position:relative; display:flex; flex-direction:column; overflow-x:hidden;
+    box-shadow:0 0 30px rgba(40,80,20,.12);
+  }
+  #app.has-tabbar{ padding-bottom:86px; }
+
+  h1,h2,h3{ font-family:'Baloo 2','Noto Sans JP',sans-serif; letter-spacing:.01em; color:var(--mei); }
+  .center{ text-align:center; }
+
+  /* ============ 画面遷移 ============ */
+  .screen{ display:none; flex-direction:column; flex:1; padding:18px 18px 26px; }
+  .screen.active{ display:flex; animation:screenEnter .28s ease-out; }
+  .screen.centered{ justify-content:center; align-items:center; text-align:center; padding:26px 22px; }
+  @keyframes screenEnter{ from{ opacity:0; transform:translateY(10px);} to{ opacity:1; transform:none; } }
+
+  /* ============ ボタン群 ============ */
+  .primary-btn{
+    display:block; width:100%; border:none; border-radius:16px; padding:16px;
+    font-family:'Baloo 2','Noto Sans JP',sans-serif; font-weight:800; font-size:18px; letter-spacing:.03em;
+    color:#fff; background:var(--duo); box-shadow:0 4px 0 var(--duo-d); cursor:pointer;
+    transition:transform .06s, box-shadow .06s;
+  }
+  .primary-btn:active{ transform:translateY(4px); box-shadow:0 0 0 var(--duo-d); }
+  .primary-btn.outline-btn{ background:#fff; color:var(--duo-d); border:2px solid #d6e8cf; box-shadow:0 4px 0 #d6e8cf; }
+  .primary-btn.outline-btn:active{ box-shadow:0 0 0 #d6e8cf; }
+  .primary-btn:disabled{ background:#e5e5e5; color:#afafaf; box-shadow:0 4px 0 #cfcfcf; cursor:default; }
+  .primary-btn:disabled:active{ transform:none; box-shadow:0 4px 0 #cfcfcf; }
+
+  .secondary-btn{
+    display:block; width:100%; padding:12px; margin-top:6px; border:none; background:none;
+    color:var(--sub); font-family:inherit; font-weight:800; font-size:15px; cursor:pointer;
+  }
+  .secondary-btn:active{ opacity:.6; }
+
+  .share-btn{
+    display:block; width:100%; padding:14px; border:none; border-radius:16px; margin-top:10px;
+    background:#111; color:#fff; font-family:'Baloo 2','Noto Sans JP',sans-serif; font-weight:800; font-size:16px; cursor:pointer;
+    box-shadow:0 4px 0 #000;
+  }
+  .share-btn:active{ transform:translateY(4px); box-shadow:0 0 0 #000; }
+
+  .callresponse-btn{
+    display:block; width:100%; padding:14px; border:2px solid var(--duo); border-radius:16px; margin-bottom:12px;
+    background:#f0fbe8; color:var(--duo-d); font-family:'Baloo 2','Noto Sans JP',sans-serif; font-weight:800; font-size:16px; cursor:pointer;
+  }
+  .callresponse-btn:active{ transform:translateY(2px); }
+
+  .back-link{ align-self:flex-start; background:none; border:none; color:var(--duo-d); font-weight:800; font-size:16px; cursor:pointer; padding:4px 0; margin-bottom:6px; }
+  .blog-link-btn{ display:block; text-align:center; text-decoration:none; margin-top:16px; padding:14px; border-radius:14px; background:#f0fbe8; color:var(--duo-d); font-weight:700; }
+
+  .sound-toggle-btn{
+    position:absolute; top:14px; right:14px; z-index:40; width:40px; height:40px; border-radius:50%;
+    border:2px solid var(--duo); background:#fff; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center;
   }
 
-  * { box-sizing: border-box; }
+  /* ============ 選択肢（Duolingoの立体カード） ============ */
+  #play-choices{ display:flex; flex-direction:column; gap:12px; }
+  .choice-btn{
+    display:block; width:100%; padding:16px; border:2px solid var(--line); border-bottom-width:4px; border-radius:16px;
+    background:#fff; color:var(--ink); font-family:inherit; font-weight:700; font-size:17px; cursor:pointer;
+    transition:background .12s, border-color .12s, transform .06s;
+  }
+  .choice-btn:hover:not(:disabled){ background:#f7f7f7; }
+  .choice-btn:active:not(:disabled){ transform:translateY(2px); }
+  .choice-btn:disabled{ cursor:default; }
+  .choice-btn.sel{ background:var(--blue-l); border-color:var(--blue); color:#1899d6; }
+  .choice-btn.is-correct{ background:var(--duo-l); border-color:var(--duo); color:#3a8a00; }
+  .choice-btn.is-wrong{ background:var(--red-l); border-color:var(--red); color:#ea2b2b; }
+  .choice-btn.glow{ animation:correctGlow .6s ease-out; }
+  @keyframes correctGlow{ 0%{ box-shadow:0 0 0 0 rgba(88,204,2,.55);} 100%{ box-shadow:0 0 0 14px rgba(88,204,2,0);} }
+  .shake{ animation:shakeX .3s; }
+  @keyframes shakeX{ 0%,100%{ transform:translateX(0);} 25%{ transform:translateX(-6px);} 75%{ transform:translateX(6px);} }
 
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-      animation-duration: 0.001ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.001ms !important;
+  /* ============ 上部ステータスバー（🔥ランク等） ============ */
+  .topbar{ display:flex; align-items:center; gap:10px; margin-bottom:10px; padding-right:48px; }
+  .stat-pill{ display:inline-flex; align-items:center; gap:6px; background:#f4f7f2; border-radius:999px; padding:7px 14px; font-weight:800; font-size:14px; }
+  .stat-pill.fire{ color:var(--gold-d); background:#fff6df; }
+  .stat-pill.rank{ color:var(--mei); background:#eefbf0; }
+  .stat-pill b{ font-family:'Baloo 2',sans-serif; }
+  .rank-progress-caption{ text-align:center; font-size:12px; color:var(--sub); font-weight:700; margin:-4px 0 10px; }
+
+  /* ============ マスコット＋吹き出し ============ */
+  .mascot{ width:130px; height:130px; object-fit:contain; display:block; margin:0 auto; }
+  .home-mascot-wrap{ position:relative; text-align:center; margin-top:4px; }
+  .mascot-outfit{ position:absolute; top:0; left:50%; transform:translateX(-50%); font-size:30px; }
+  .mascot-speech-bubble{
+    display:none; position:absolute; left:50%; bottom:100%; transform:translateX(-50%);
+    background:var(--gold); color:#fff; font-weight:800; font-size:13px; white-space:nowrap;
+    padding:7px 14px; border-radius:999px; margin-bottom:6px; z-index:5; box-shadow:0 4px 12px rgba(0,0,0,.15);
+  }
+  .mascot-speech-bubble.show{ display:block; animation:pop .4s cubic-bezier(.2,.9,.3,1.4); }
+  @keyframes pop{ from{ opacity:0; transform:translateX(-50%) scale(.6);} to{ opacity:1; transform:translateX(-50%) scale(1);} }
+
+  /* 挨拶＝マスコット直下の吹き出し（喋ってる感） */
+  #home-greeting.home-greeting{
+    position:relative; align-self:center; display:inline-block; max-width:92%;
+    background:#fff; border:2px solid var(--line); border-radius:18px; color:#4a4a4a;
+    font-family:'Baloo 2','Noto Sans JP',sans-serif; font-size:15.5px; font-weight:700; line-height:1.55;
+    padding:13px 18px; margin:6px auto 16px;
+  }
+  #home-greeting.home-greeting::before{ content:""; position:absolute; top:-12px; left:50%; transform:translateX(-50%); border:11px solid transparent; border-bottom-color:var(--line); }
+  #home-greeting.home-greeting::after{ content:""; position:absolute; top:-9px; left:50%; transform:translateX(-50%); border:9px solid transparent; border-bottom-color:#fff; }
+
+  /* 記念日バナー */
+  #anniversary-banner{ display:none; background:#fff6df; border:2px solid var(--gold); border-radius:16px; padding:12px 16px; text-align:center; font-size:14px; font-weight:700; color:#8a6d00; margin-bottom:14px; }
+  #anniversary-label{ display:block; font-weight:800; }
+
+  /* パワーゲージ（コンパクト） */
+  #power-gauge-wrap{ margin-bottom:16px; }
+  .power-gauge-label{ display:flex; justify-content:space-between; font-size:12px; font-weight:700; color:var(--sub); margin-bottom:5px; }
+  .power-gauge-track{ height:12px; background:#eef1ec; border-radius:999px; overflow:hidden; }
+  #power-gauge-bar{ height:100%; width:0; background:linear-gradient(90deg,var(--duo),var(--duo-l)); border-radius:999px; transition:width .6s ease; }
+  #power-gauge-bar.is-full{ background:linear-gradient(90deg,var(--gold),#ffe08a); }
+  #power-gauge-comment{ font-size:12px; color:var(--sub); text-align:center; margin-top:6px; }
+
+  /* ============ ホームのヒーロー（今日の3問＝主役の「はじめる」） ============ */
+  .hero-card{
+    background:linear-gradient(160deg,#fbfff5,#eefbe6); border:2px solid var(--duo); border-bottom-width:5px;
+    border-radius:22px; padding:22px 20px 20px; text-align:center; cursor:pointer; margin-bottom:14px;
+    transition:transform .08s;
+  }
+  .hero-card:active{ transform:translateY(2px); }
+  .hero-card.daily-done{ opacity:.75; border-color:var(--line); background:#f7f7f5; cursor:default; }
+  .hero-eyebrow{ font-size:12px; font-weight:800; letter-spacing:.14em; color:var(--duo-d); }
+  .hero-icon{ font-size:44px; margin:4px 0 2px; }
+  .hero-title{ font-family:'Baloo 2',sans-serif; font-size:24px; font-weight:800; color:var(--mei); }
+  .hero-desc{ font-size:13.5px; color:var(--sub); margin:6px 0 16px; line-height:1.6; }
+  .hero-cta{
+    display:block; background:var(--duo); color:#fff; border-radius:14px; padding:14px;
+    font-family:'Baloo 2',sans-serif; font-weight:800; font-size:19px; letter-spacing:.04em;
+    box-shadow:0 4px 0 var(--duo-d);
+  }
+  .hero-card:active .hero-cta{ box-shadow:0 1px 0 var(--duo-d); transform:translateY(3px); }
+  .hero-card.daily-done .hero-cta{ display:none; }
+  .daily-next-btn{ display:inline-block; margin-top:12px; padding:10px 16px; border:none; border-radius:12px; background:var(--duo); color:#fff; font-family:'Baloo 2',sans-serif; font-weight:800; font-size:14px; cursor:pointer; box-shadow:0 3px 0 var(--duo-d); }
+  .daily-next-btn:active{ transform:translateY(2px); box-shadow:0 1px 0 var(--duo-d); }
+
+  .home-more-link{ display:block; width:100%; text-align:center; background:none; border:none; color:var(--duo-d); font-family:'Baloo 2',sans-serif; font-weight:800; font-size:15px; padding:10px; cursor:pointer; }
+  .home-more-link:active{ opacity:.6; }
+
+  /* おみくじは一旦非表示 */
+  .omikuji-card{ display:none !important; }
+
+  /* ============ あそぶタブ（モードリスト） ============ */
+  .screen-title{ font-family:'Baloo 2',sans-serif; font-size:26px; font-weight:800; color:var(--mei); text-align:center; margin-bottom:16px; }
+  .status-bar{ display:flex; gap:10px; margin-bottom:18px; }
+  .status-item{ flex:1; background:#f4f7f2; border-radius:14px; padding:12px 6px; text-align:center; }
+  .status-label{ font-size:11px; color:var(--sub); font-weight:700; line-height:1.3; }
+  .status-item b{ display:block; font-family:'Baloo 2',sans-serif; font-size:22px; color:var(--mei); margin-top:2px; }
+  .mode-card{
+    display:flex; align-items:center; gap:14px; width:100%; text-align:left; margin-bottom:12px;
+    background:#fff; border:2px solid var(--line); border-bottom-width:4px; border-radius:18px; padding:16px 18px; cursor:pointer;
+    transition:transform .06s, border-color .12s;
+  }
+  .mode-card:active{ transform:translateY(2px); }
+  .mode-card:hover{ border-color:#cfe8c2; }
+  .mode-card.featured{ background:var(--duo); border-color:var(--duo-d); color:#fff; }
+  .mode-card.featured .mode-desc{ color:rgba(255,255,255,.9); }
+  .mode-card .mode-icon{ font-size:34px; flex:0 0 auto; }
+  .mode-card .mode-title{ font-family:'Baloo 2',sans-serif; font-weight:800; font-size:19px; }
+  .mode-card .mode-desc{ font-size:13px; color:var(--sub); line-height:1.5; }
+
+  /* ============ コレクション ============ */
+  .sasa-balance{ display:inline-block; align-self:center; background:#fff6df; border:2px solid var(--gold); border-radius:999px; padding:6px 18px; font-weight:800; color:#8a6d00; margin:0 auto 18px; }
+  .badge-section-title{ font-family:'Baloo 2',sans-serif; font-weight:800; font-size:16px; color:var(--mei); margin:8px 0 12px; }
+  .card-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:8px; }
+  .quote-card{ min-height:78px; display:flex; align-items:center; justify-content:center; text-align:center; padding:12px; border:2px solid var(--line); border-bottom-width:4px; border-radius:14px; background:#fff; font-size:14px; font-weight:700; color:var(--ink); cursor:pointer; transition:transform .06s; }
+  .quote-card:active{ transform:translateY(2px); }
+  .quote-card.locked{ background:#f2f2f0; color:#c4c4c4; border-style:dashed; cursor:default; }
+  .quote-card.shiny{ background:linear-gradient(135deg,#fffef0,#eaffe0); border-color:var(--gold); }
+  .outfit-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:8px; }
+  .outfit-cell{ text-align:center; border:2px solid var(--line); border-bottom-width:4px; border-radius:14px; padding:12px 6px; font-size:12px; font-weight:700; cursor:pointer; background:#fff; }
+  .outfit-cell.equipped{ border-color:var(--duo); background:#f0fbe8; }
+  .outfit-cell.locked{ opacity:.6; }
+  .outfit-emoji{ display:block; font-size:28px; margin-bottom:4px; }
+  .outfit-cost{ color:var(--sub); font-size:11px; margin-top:2px; }
+  .badge-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:10px; }
+  .badge-cell{ text-align:center; font-size:11px; color:var(--sub); }
+  .badge-emoji{ font-size:26px; }
+  .badge-cell.locked{ opacity:.35; }
+  .badge-name{ display:block; font-weight:700; }
+  .badge-date{ display:block; font-size:10px; color:#aaa; }
+
+  /* ============ プレイ（レッスン）画面 ============ */
+  #screen-play{ padding:0; }
+  #screen-play.active{ display:flex; }
+  .lesson-top{ display:flex; align-items:center; gap:12px; padding:16px 18px 8px; }
+  .lesson-x{ background:none; border:none; font-size:24px; color:#c4c4c4; font-weight:800; cursor:pointer; line-height:1; }
+  .lesson-x:active{ color:#999; }
+  .timer-track{ flex:1; height:14px; background:var(--line); border-radius:999px; overflow:hidden; }
+  #play-timer-bar{ height:100%; width:100%; background:var(--duo); border-radius:999px; transition:width .1s linear; }
+  #play-clock-wrap{ font-family:'Baloo 2',sans-serif; font-weight:800; font-size:15px; color:var(--mei); white-space:nowrap; }
+  .lesson-body{ flex:1; overflow-y:auto; padding:8px 18px 12px; }
+  .category-badge{ display:inline-block; background:#eafff0; color:#3a8a00; border-radius:999px; font-weight:800; font-size:12px; padding:5px 14px; margin-bottom:10px; }
+  #play-progress{ font-size:13px; color:var(--sub); font-weight:700; margin-bottom:10px; }
+  #play-question{ font-family:'Baloo 2','Noto Sans JP',sans-serif; font-size:22px; font-weight:800; color:var(--ink); line-height:1.45; margin-bottom:20px; }
+  .lesson-foot{ padding:14px 18px calc(18px + env(safe-area-inset-bottom)); border-top:2px solid #f2f2f2; background:#fff; }
+  .feedback{ min-height:0; font-size:15px; font-weight:800; border-radius:14px; line-height:1.6; }
+  .feedback:empty{ display:none; }
+  .feedback-correct{ background:var(--duo-l); color:#3a8a00; padding:14px 16px; margin-bottom:12px; }
+  .feedback-wrong{ background:var(--red-l); color:#ea2b2b; padding:14px 16px; margin-bottom:12px; }
+
+  #combo-display{ display:none; position:absolute; left:50%; top:22%; transform:translate(-50%,-50%) scale(.6); font-family:'Baloo 2',sans-serif; font-weight:800; color:var(--gold-d); text-shadow:0 2px 6px rgba(0,0,0,.15); pointer-events:none; z-index:55; white-space:nowrap; }
+  #combo-display.show{ animation:comboPop .5s cubic-bezier(.2,.9,.3,1.3) forwards; }
+  @keyframes comboPop{ 0%{ opacity:0; transform:translate(-50%,-50%) scale(.4);} 50%{ opacity:1; transform:translate(-50%,-50%) scale(1.25);} 100%{ opacity:1; transform:translate(-50%,-50%) scale(1);} }
+  .screen-flash{ animation:screenFlash .35s ease-out; }
+  @keyframes screenFlash{ 0%{ background:rgba(255,200,0,.4);} 100%{ background:transparent; } }
+  .celebration-layer{ position:absolute; inset:0; pointer-events:none; z-index:60; overflow:hidden; }
+  .confetti-piece{ position:absolute; line-height:1; will-change:transform,opacity; }
+  .confetti-piece.burst{ border-radius:2px; animation:burstFly .9s ease-out forwards; }
+  @keyframes burstFly{ 0%{ transform:translate(0,0) rotate(0);} 15%{ opacity:1; } 100%{ transform:translate(var(--tx), var(--ty)) rotate(var(--rot)); opacity:0; } }
+  .confetti-piece.rain{ animation:rainFall 1.6s ease-in forwards; }
+  @keyframes rainFall{ 0%{ transform:translate(0,0) rotate(0); opacity:0;} 12%{ opacity:1; } 100%{ transform:translate(var(--sway), var(--fall)) rotate(var(--rot)); opacity:0; } }
+
+  /* ============ リザルト（レッスン完了） ============ */
+  #screen-result{ text-align:center; }
+  #screen-result .mascot{ width:110px; height:110px; }
+  #result-mode-label{ font-family:'Baloo 2',sans-serif; font-size:26px; font-weight:800; color:var(--mei); margin:4px 0 10px; }
+  #result-newbest{ display:none; font-weight:800; color:var(--gold-d); margin-bottom:8px; }
+  #result-score{ font-family:'Baloo 2',sans-serif; font-size:52px; font-weight:800; color:var(--mei); line-height:1; margin:6px 0 2px; }
+  #result-best-wrap{ font-size:14px; color:var(--sub); margin-bottom:14px; }
+  #result-diagnosis{ display:none; background:#f4f7f2; border-radius:18px; padding:18px; margin-bottom:14px; }
+  #result-diagnosis-title{ font-family:'Baloo 2',sans-serif; font-size:20px; font-weight:800; color:var(--mei); margin-bottom:6px; }
+  #result-diagnosis-comment{ font-size:13.5px; color:#555; line-height:1.6; margin-bottom:12px; }
+  .meter-track{ height:16px; background:#eef1ec; border-radius:999px; overflow:hidden; margin-bottom:6px; }
+  #result-meter-bar{ height:100%; width:0; background:var(--duo); border-radius:999px; transition:width 1s cubic-bezier(.2,.8,.3,1); }
+  #result-meter-bar.is-max{ background:var(--gold); }
+  #result-diagnosis-percent{ font-size:12px; font-weight:700; color:var(--sub); }
+  #result-daily-grid{ display:none; margin-bottom:14px; }
+  #result-daily-emojis{ font-size:30px; letter-spacing:6px; }
+  #result-daily-score{ font-weight:800; color:var(--mei); }
+  #result-streak-badge:not(:empty),#result-newbadge:not(:empty),#result-newcard:not(:empty){ display:block; margin-bottom:8px; font-weight:700; }
+  #result-rank{ font-size:14px; color:var(--mei); font-weight:800; margin-bottom:14px; }
+  #callresponse-pop{ display:none; position:absolute; left:50%; top:40%; transform:translate(-50%,-50%); font-family:'Baloo 2',sans-serif; font-size:28px; font-weight:800; color:var(--mei); text-shadow:0 2px 8px rgba(255,255,255,.9); pointer-events:none; z-index:60; white-space:nowrap; }
+  #callresponse-pop.show{ display:block; animation:comboPop 1s ease-out forwards; }
+
+  /* ============ 図鑑 ============ */
+  #encyclopedia-list{ text-align:left; }
+  .encyclopedia-item{ border-bottom:1px solid var(--line); padding:14px 0; }
+  .encyclopedia-q{ font-weight:800; color:var(--ink); margin-bottom:4px; }
+  .encyclopedia-a{ font-size:14px; color:#555; line-height:1.6; }
+
+  /* ============ 導入・名前入力 ============ */
+  .subtitle{ color:var(--sub); font-size:15px; margin-bottom:20px; }
+  #intro-choices{ display:flex; flex-direction:column; gap:12px; width:100%; }
+  #intro-choices .choice-btn{ text-align:center; }
+  .name-input{ width:100%; padding:15px; border:2px solid var(--line); border-radius:14px; font-size:17px; font-family:inherit; margin-bottom:14px; text-align:center; }
+  .name-input:focus{ outline:none; border-color:var(--duo); }
+
+  /* ============ 下タブ ============ */
+  .tab-bar{ display:none; position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; background:#fff; border-top:2px solid #eef4ec; box-shadow:0 -3px 14px rgba(0,0,0,.05); z-index:45; }
+  .tab-bar.show{ display:block; }
+  .tab-bar-inner{ display:flex; }
+  .tab-btn{ flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:10px 4px calc(12px + env(safe-area-inset-bottom)); border:none; background:none; cursor:pointer; color:#aaa; font-size:11px; font-weight:800; }
+  .tab-btn .tab-icon{ font-size:22px; transition:transform .25s cubic-bezier(.3,1.5,.5,1); }
+  .tab-btn.active{ color:var(--duo-d); }
+  .tab-btn.active .tab-icon{ transform:translateY(-3px) scale(1.15); }
+  .tab-btn.guide-bounce .tab-icon{ animation:tabBounce .7s ease-in-out 3; }
+  @keyframes tabBounce{ 0%,100%{ transform:translateY(0);} 40%{ transform:translateY(-8px) scale(1.2);} }
+
+  /* ============ カード詳細モーダル ============ */
+  .card-detail-overlay{ position:fixed; inset:0; background:rgba(20,40,15,.5); display:flex; align-items:center; justify-content:center; padding:24px; z-index:80; animation:fadeIn .2s ease; }
+  @keyframes fadeIn{ from{opacity:0;} to{opacity:1;} }
+  .card-detail{ background:#fff; border-radius:22px; padding:24px 22px; max-width:340px; width:100%; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,.3); animation:pop2 .25s cubic-bezier(.2,.9,.3,1.3); }
+  @keyframes pop2{ from{opacity:0; transform:scale(.85);} to{opacity:1; transform:scale(1);} }
+  .card-detail-cat{ display:inline-block; background:#eafff0; color:var(--duo-d); font-size:12px; font-weight:800; border-radius:999px; padding:5px 14px; margin-bottom:14px; }
+  .card-detail-quote{ font-family:'Baloo 2',sans-serif; font-size:20px; font-weight:800; color:var(--mei); line-height:1.5; margin-bottom:16px; }
+  .card-detail-explain{ font-size:14px; color:#555; line-height:1.7; text-align:left; margin-bottom:16px; }
+  .card-detail-source{ font-size:13px; font-weight:700; color:#8a8a8a; background:#f6f7f6; border-radius:12px; padding:10px 12px; margin-bottom:18px; }
+
+  /* ============ PC表示のときだけスマホ枠（実機スマホ ≤430px は従来どおり全画面） ============ */
+  @media (min-width:500px){
+    body{ align-items:center; padding:24px 0; }
+    #app{
+      min-height:0; height:min(880px,92vh); max-width:390px;
+      border-radius:44px; overflow:hidden; position:relative;
+      box-shadow:0 30px 70px rgba(40,80,20,.28), 0 0 0 11px #1c1c22, 0 0 0 13px #33333a;
     }
-  }
-
-  body {
-    margin: 0;
-    min-height: 100vh;
-    background: var(--paper);
-    color: var(--ink);
-    font-family: 'Noto Sans JP', sans-serif;
-    font-size: 18px;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-  }
-
-  #app {
-    width: 100%;
-    max-width: 480px;
-    min-height: 100vh;
-    background: #fff;
-    box-shadow: 0 0 24px rgba(0,0,0,0.08);
-    display: flex;
-    flex-direction: column;
-    position: relative;
-  }
-
-  #app.has-tabbar { padding-bottom: 64px; }
-
-  /* ==================== ホームタブ ==================== */
-  .home-mascot-wrap { text-align: center; margin-bottom: 4px; }
-  .home-mascot-wrap .mascot { width: 168px; height: 168px; margin-bottom: 6px; }
-  .home-greeting { font-size: 19px; font-weight: 900; color: var(--mei); text-align: center; margin-bottom: 14px; }
-  .home-streak-row {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-    align-items: center;
-    background: #fff9e6;
-    border: 2px solid var(--gold);
-    border-radius: 14px;
-    padding: 8px 14px;
-    margin: 0 auto 16px;
-    width: fit-content;
-    font-weight: 900;
-    color: #a67c00;
-    font-size: 15px;
-  }
-  .home-daily-cta {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    width: 100%;
-    padding: 20px;
-    margin-bottom: 16px;
-    border: none;
-    border-radius: 20px;
-    background: linear-gradient(135deg, #fff9e6, #fff3cc);
-    border: 2px solid var(--gold);
-    cursor: pointer;
-    text-align: left;
-  }
-  .home-daily-cta .mode-icon { font-size: 40px; }
-  .home-daily-cta .mode-title { font-weight: 900; font-size: 21px; color: #a67c00; }
-  .home-daily-cta .mode-desc { font-size: 14px; color: #8a6d00; opacity: 0.9; }
-  .home-daily-cta:disabled, .home-daily-cta.daily-done { opacity: 0.55; cursor: default; }
-
-  /* N3: 今日の3問クリア後カード内の「つぎは⏱タイムアタック！」ミニボタン */
-  .daily-next-btn {
-    display: inline-block;
-    margin-top: 8px;
-    padding: 8px 14px;
-    font-size: 13px;
-    font-weight: 900;
-    border: none;
-    border-radius: 12px;
-    background: var(--mei);
-    color: #fff;
-    cursor: pointer;
-    box-shadow: 0 3px 0 #05730f;
-  }
-  .daily-next-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #05730f; }
-
-  /* ==================== N1: ホームの遊びゾーン（タイムアタック常設ボタン） ==================== */
-  .home-play-zone { margin-bottom: 18px; }
-  .home-timeattack-cta {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    width: 100%;
-    padding: 20px;
-    margin: 10px 0 10px;
-    border: none;
-    border-radius: 20px;
-    background: var(--mei);
-    color: #fff;
-    cursor: pointer;
-    text-align: left;
-    box-shadow: 0 6px 0 #05730f;
-  }
-  .home-timeattack-cta:active { transform: translateY(4px); box-shadow: 0 2px 0 #05730f; }
-  .home-timeattack-cta .mode-icon { font-size: 40px; }
-  .home-timeattack-cta .mode-title { font-weight: 900; font-size: 21px; }
-  .home-timeattack-cta .mode-desc { font-size: 14px; opacity: 0.9; }
-
-  .home-playall-link {
-    display: block;
-    width: 100%;
-    text-align: center;
-    background: none;
-    border: none;
-    color: #888;
-    font-size: 14px;
-    font-weight: 700;
-    padding: 4px 0 14px;
-    cursor: pointer;
-  }
-
-  /* ==================== 下タブナビゲーション追加分 ==================== */
-  .tab-bar-inner { display: flex; width: 100%; }
-
-  .screen {
-    display: none;
-    flex-direction: column;
-    padding: 28px 20px 32px;
-    flex: 1;
-    opacity: 1;
-    transform: translateY(0);
-  }
-  .screen.active { display: flex; }
-  .screen.screen-enter {
-    animation: screenEnter 0.25s ease-out;
-  }
-  @keyframes screenEnter {
-    0% { opacity: 0; transform: translateY(10px); }
-    100% { opacity: 1; transform: translateY(0); }
-  }
-
-  /* ==================== J5: マイクロアニメーション（ボタン共通） ==================== */
-  .choice-btn, .primary-btn, .share-btn, .secondary-btn, .mode-card,
-  .callresponse-btn, .tab-btn, .sound-toggle-btn, .blog-link-btn, .back-link,
-  .home-playall-link, .daily-next-btn {
-    transition: transform 0.1s, background 0.15s, box-shadow 0.1s;
-  }
-  .choice-btn:active:not(:disabled),
-  .primary-btn:active,
-  .share-btn:active,
-  .mode-card:active,
-  .callresponse-btn:active,
-  .tab-btn:active,
-  .sound-toggle-btn:active,
-  .home-playall-link:active,
-  .daily-next-btn:active {
-    transform: scale(0.96);
-  }
-
-  .shake {
-    animation: shakeCard 0.3s;
-  }
-  @keyframes shakeCard {
-    0%, 100% { transform: translateX(0); }
-    20% { transform: translateX(-6px); }
-    40% { transform: translateX(6px); }
-    60% { transform: translateX(-4px); }
-    80% { transform: translateX(4px); }
-  }
-
-  .choice-btn.is-correct.glow {
-    animation: correctGlow 0.6s ease-out;
-  }
-  @keyframes correctGlow {
-    0% { box-shadow: 0 0 0 0 rgba(7,156,21,0.6); }
-    60% { box-shadow: 0 0 0 14px rgba(7,156,21,0); }
-    100% { box-shadow: 0 0 0 0 rgba(7,156,21,0); }
-  }
-
-  /* ==================== 🔊 サウンドトグル ==================== */
-  .sound-toggle-btn {
-    position: absolute;
-    top: 14px;
-    right: 14px;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    border: 2px solid var(--mei);
-    background: #fff;
-    font-size: 18px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 40;
-  }
-
-  /* ==================== J3: コンボ表示 ==================== */
-  #combo-display {
-    display: none;
-    position: absolute;
-    left: 50%;
-    top: 18%;
-    transform: translate(-50%, -50%) scale(0.6);
-    font-family: 'Orbitron', 'Noto Sans JP', sans-serif;
-    font-weight: 900;
-    color: var(--gold);
-    text-shadow: 0 2px 6px rgba(0,0,0,0.15);
-    pointer-events: none;
-    z-index: 55;
-    white-space: nowrap;
-    text-align: center;
-  }
-  #combo-display.show {
-    animation: comboPop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.3) forwards;
-  }
-  @keyframes comboPop {
-    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
-    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
-    100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  }
-
-  .screen-flash {
-    animation: screenFlash 0.35s ease-out;
-  }
-  @keyframes screenFlash {
-    0% { background: rgba(255,193,7,0.55); }
-    100% { background: transparent; }
-  }
-
-  /* ==================== J6: 下タブナビゲーション ==================== */
-  .tab-bar {
-    display: none;
-    position: fixed;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 100%;
-    max-width: 480px;
-    background: #fff;
-    border-top: 2px solid #eefbf0;
-    box-shadow: 0 -4px 14px rgba(0,0,0,0.06);
-    z-index: 45;
-  }
-  .tab-bar.show { display: flex; }
-  .tab-btn {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    padding: 8px 4px 10px;
-    border: none;
-    background: none;
-    cursor: pointer;
-    color: #999;
-    font-size: 11px;
-    font-weight: 700;
-  }
-  .tab-btn .tab-icon { font-size: 22px; transition: transform 0.25s cubic-bezier(0.3,1.5,0.5,1); }
-  .tab-btn.active { color: var(--mei); }
-  .tab-btn.active .tab-icon { transform: translateY(-3px) scale(1.15); }
-
-  /* ==================== N2: 初回ガイド（🎮タブぴょこぴょこ） ==================== */
-  .tab-btn.guide-bounce .tab-icon {
-    animation: tabGuideBounce 0.7s ease-in-out 3;
-  }
-  .tab-btn.guide-bounce {
-    color: var(--mei);
-  }
-  @keyframes tabGuideBounce {
-    0%, 100% { transform: translateY(0) scale(1); filter: drop-shadow(0 0 0 rgba(7,156,21,0)); }
-    30% { transform: translateY(-9px) scale(1.25); filter: drop-shadow(0 0 6px rgba(7,156,21,0.7)); }
-    55% { transform: translateY(0) scale(0.95); filter: drop-shadow(0 0 0 rgba(7,156,21,0)); }
-  }
-
-  h1, h2 {
-    font-family: 'Orbitron', 'Noto Sans JP', sans-serif;
-    color: var(--mei);
-    margin: 0 0 8px;
-    word-break: keep-all;
-    overflow-wrap: break-word;
-  }
-
-  h1 { font-size: 32px; }
-  h2 { font-size: 24px; }
-
-  .mascot {
-    width: 140px;
-    height: 140px;
-    object-fit: contain;
-    display: block;
-    margin: 0 auto 16px;
-  }
-
-  .center { text-align: center; }
-
-  .subtitle {
-    color: #666;
-    font-size: 17px;
-    margin-bottom: 24px;
-    text-align: center;
-  }
-
-  .choice-btn {
-    display: block;
-    width: 100%;
-    padding: 18px;
-    margin-bottom: 12px;
-    font-size: 19px;
-    font-weight: 700;
-    border: 2px solid var(--mei);
-    border-radius: 16px;
-    background: #fff;
-    color: var(--mei);
-    cursor: pointer;
-    transition: transform 0.1s, background 0.15s;
-  }
-  .choice-btn:hover:not(:disabled) { background: #eefbf0; transform: translateY(-1px); }
-  .choice-btn:disabled { cursor: default; opacity: 0.7; }
-  .choice-btn.is-correct { background: var(--mei); color: #fff; opacity: 1; }
-  .choice-btn.is-wrong { background: var(--wrong); border-color: var(--wrong); color: #fff; opacity: 1; }
-
-  .primary-btn {
-    display: block;
-    width: 100%;
-    padding: 20px;
-    font-size: 21px;
-    font-weight: 900;
-    border: none;
-    border-radius: 20px;
-    background: var(--mei);
-    color: #fff;
-    cursor: pointer;
-    box-shadow: 0 6px 0 #05730f;
-    margin-bottom: 14px;
-  }
-  .primary-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #05730f; }
-
-  /* N4: リザルトのセカンダリ導線ボタン（主ボタンほど強くない、でも押しやすい見た目） */
-  .primary-btn.outline-btn {
-    background: #fff;
-    color: var(--mei);
-    border: 2px solid var(--mei);
-    box-shadow: none;
-  }
-  .primary-btn.outline-btn:active { transform: scale(0.97); box-shadow: none; }
-
-  .share-btn {
-    display: block;
-    width: 100%;
-    padding: 16px;
-    font-size: 18px;
-    font-weight: 700;
-    border: 2px solid #000;
-    border-radius: 16px;
-    background: #000;
-    color: #fff;
-    cursor: pointer;
-    margin-bottom: 10px;
-  }
-  .share-btn:active { opacity: 0.8; }
-
-  .secondary-btn {
-    display: block;
-    width: 100%;
-    padding: 14px;
-    font-size: 17px;
-    font-weight: 700;
-    border: none;
-    background: none;
-    color: #888;
-    cursor: pointer;
-    text-decoration: underline;
-  }
-
-  .mode-card {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    width: 100%;
-    padding: 18px;
-    margin-bottom: 14px;
-    border: none;
-    border-radius: 20px;
-    background: #f2fbf3;
-    cursor: pointer;
-    text-align: left;
-  }
-  .mode-card.featured { background: var(--mei); color: #fff; }
-  .mode-card.daily { background: #fff9e6; border: 2px solid var(--gold); }
-  .mode-card.daily-done { opacity: 0.6; cursor: default; }
-  .mode-card .mode-icon { font-size: 36px; }
-  .mode-card .mode-title { font-weight: 900; font-size: 20px; }
-  .mode-card .mode-desc { font-size: 15px; opacity: 0.8; }
-
-  .rank-badge {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    background: #eefbf0;
-    border: 2px solid var(--mei);
-    border-radius: 16px;
-    padding: 12px 16px;
-    margin-bottom: 16px;
-    text-align: center;
-  }
-  .rank-label { font-size: 12px; color: #5c5c5c; }
-  .rank-title {
-    font-family: 'Orbitron', 'Noto Sans JP', sans-serif;
-    font-size: 19px;
-    font-weight: 900;
-    color: var(--mei);
-  }
-  .rank-progress { font-size: 12px; color: #888; }
-
-  /* ==================== S1: 博士度診断・メーター ==================== */
-  #result-diagnosis {
-    display: none;
-    text-align: center;
-    margin: 12px 0 18px;
-  }
-  #result-diagnosis-title {
-    font-family: 'Orbitron', 'Noto Sans JP', sans-serif;
-    font-size: 24px;
-    font-weight: 900;
-    color: var(--mei);
-    margin-bottom: 6px;
-  }
-  #result-diagnosis-comment {
-    font-size: 15px;
-    color: #555;
-    margin-bottom: 12px;
-    line-height: 1.5;
-  }
-  .meter-track {
-    width: 100%;
-    height: 18px;
-    background: #eee;
-    border-radius: 10px;
-    overflow: hidden;
-    margin-bottom: 6px;
-  }
-  #result-meter-bar {
-    height: 100%;
-    width: 0%;
-    background: var(--mei);
-    border-radius: 10px;
-    transition: width 1s cubic-bezier(0.2, 0.8, 0.3, 1);
-  }
-  #result-meter-bar.is-max { background: var(--gold); }
-  #result-diagnosis-percent {
-    font-size: 13px;
-    font-weight: 700;
-    color: #888;
-  }
-
-  /* ==================== S2: 今日の3問 絵文字グリッド ==================== */
-  #result-daily-grid {
-    display: none;
-    text-align: center;
-    margin: 12px 0 18px;
-  }
-  #result-daily-emojis {
-    font-size: 32px;
-    letter-spacing: 6px;
-    margin-bottom: 6px;
-  }
-  #result-daily-score {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--mei);
-  }
-
-  /* ==================== S3: コール&レスポンス ==================== */
-  .callresponse-btn {
-    display: block;
-    width: 100%;
-    padding: 16px;
-    font-size: 18px;
-    font-weight: 900;
-    border: 2px solid var(--mei);
-    border-radius: 16px;
-    background: #eefbf0;
-    color: var(--mei);
-    cursor: pointer;
-    margin-bottom: 14px;
-  }
-  .callresponse-btn:active { transform: translateY(2px); }
-  #callresponse-pop {
-    display: none;
-    position: absolute;
-    left: 50%;
-    top: 40%;
-    transform: translate(-50%, -50%);
-    font-size: 30px;
-    font-weight: 900;
-    color: var(--mei);
-    text-shadow: 0 2px 8px rgba(255,255,255,0.9);
-    pointer-events: none;
-    z-index: 60;
-    white-space: nowrap;
-  }
-  #callresponse-pop.show {
-    animation: popResponse 1s ease-out forwards;
-  }
-  @keyframes popResponse {
-    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-    15% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
-    30% { transform: translate(-50%, -50%) scale(1); }
-    75% { opacity: 1; }
-    100% { opacity: 0; transform: translate(-50%, -60%) scale(1); }
-  }
-
-  /* ==================== J4: リザルト バッジ等のスライドイン ==================== */
-  .result-slide-in {
-    animation: resultSlideIn 0.35s cubic-bezier(0.2, 0.8, 0.3, 1);
-  }
-  @keyframes resultSlideIn {
-    0% { opacity: 0; transform: translateY(14px); }
-    100% { opacity: 1; transform: translateY(0); }
-  }
-
-  /* ==================== R1: ストリーク節目バッジ ==================== */
-  #result-streak-badge {
-    display: none;
-    text-align: center;
-    background: #fff9e6;
-    border: 2px solid var(--gold);
-    border-radius: 14px;
-    padding: 10px;
-    font-weight: 900;
-    color: #a67c00;
-    margin-bottom: 14px;
-  }
-
-  /* ==================== R2: 新バッジ解放 ==================== */
-  #result-newbadge {
-    display: none;
-    text-align: center;
-    background: #eefbf0;
-    border: 2px solid var(--mei);
-    border-radius: 14px;
-    padding: 10px;
-    font-weight: 900;
-    color: var(--mei);
-    margin-bottom: 14px;
-  }
-
-  /* ==================== バッジコレクション画面 ==================== */
-  .badge-section-title {
-    font-size: 15px;
-    font-weight: 700;
-    color: #888;
-    margin: 16px 0 8px;
-  }
-  .badge-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-  }
-  .badge-cell {
-    background: #f2fbf3;
-    border: 2px solid var(--mei);
-    border-radius: 14px;
-    padding: 12px 6px;
-    text-align: center;
-  }
-  .badge-cell.locked {
-    background: #f4f4f4;
-    border-color: #ddd;
-    color: #aaa;
-  }
-  .badge-emoji { font-size: 30px; display: block; margin-bottom: 4px; }
-  .badge-cell.locked .badge-emoji { filter: grayscale(1); opacity: 0.4; }
-  .badge-name { font-size: 12px; font-weight: 700; line-height: 1.3; }
-  .badge-date { font-size: 10px; color: #888; margin-top: 2px; }
-  .badge-hint { font-size: 10px; color: #aaa; margin-top: 2px; }
-
-  .blog-link-btn {
-    display: block;
-    width: 100%;
-    padding: 14px;
-    font-size: 15px;
-    font-weight: 700;
-    border: 2px solid var(--mei);
-    border-radius: 14px;
-    background: #fff;
-    color: var(--mei);
-    text-decoration: none;
-    text-align: center;
-    margin-top: 16px;
-  }
-
-  .status-bar {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-  }
-  .status-item {
-    flex: 1;
-    background: #f2fbf3;
-    border: 1px solid #cdeed1;
-    border-radius: 14px;
-    padding: 12px 6px;
-    text-align: center;
-  }
-  .status-label {
-    display: block;
-    font-size: 13px;
-    line-height: 1.3;
-    color: #5c5c5c;
-    margin-bottom: 6px;
-  }
-  .status-item b { display: block; font-size: 21px; color: var(--mei); }
-
-  #play-clock-wrap {
-    text-align: right;
-    font-family: 'Orbitron', sans-serif;
-    font-weight: 900;
-    color: var(--mei);
-    margin-bottom: 6px;
-  }
-  #play-clock-wrap span { font-size: 26px; }
-
-  .timer-track {
-    width: 100%;
-    height: 6px;
-    background: #eee;
-    border-radius: 4px;
-    overflow: hidden;
-    margin-bottom: 18px;
-  }
-  #play-timer-bar {
-    height: 100%;
-    width: 100%;
-    background: var(--gold);
-    transition: width 0.1s linear;
-  }
-
-  .category-badge {
-    display: inline-block;
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--mei);
-    background: #eefbf0;
-    border-radius: 10px;
-    padding: 4px 10px;
-    margin-bottom: 10px;
-    align-self: flex-start;
-  }
-
-  #play-progress {
-    font-size: 15px;
-    color: #999;
-    margin-bottom: 12px;
-  }
-
-  #play-question {
-    font-size: 22px;
-    font-weight: 700;
-    line-height: 1.5;
-    margin-bottom: 20px;
-    min-height: 56px;
-  }
-
-  .feedback {
-    min-height: 44px;
-    font-size: 17px;
-    font-weight: 700;
-    border-radius: 14px;
-    padding: 12px 14px;
-    margin-top: 8px;
-  }
-  .feedback-correct { background: #eefbf0; color: var(--mei); }
-  .feedback-wrong { background: #fdecea; color: var(--wrong); }
-
-  .name-input {
-    width: 100%;
-    padding: 14px;
-    font-size: 19px;
-    border: 2px solid var(--mei);
-    border-radius: 14px;
-    margin-bottom: 16px;
-    font-family: 'Noto Sans JP', sans-serif;
-  }
-
-  #result-score {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 46px;
-    font-weight: 900;
-    color: var(--mei);
-    text-align: center;
-    margin: 8px 0;
-  }
-  #result-newbest {
-    display: none;
-    text-align: center;
-    color: var(--gold);
-    font-weight: 900;
-    margin-bottom: 10px;
-  }
-  #result-best-wrap {
-    text-align: center;
-    font-size: 16px;
-    color: #888;
-    margin-bottom: 24px;
-  }
-
-  .encyclopedia-item {
-    border-bottom: 1px solid #eee;
-    padding: 12px 0;
-  }
-  .encyclopedia-q { font-weight: 700; margin-bottom: 4px; }
-  .encyclopedia-a { font-size: 16px; color: #555; }
-  #encyclopedia-list { flex: 1; overflow-y: auto; margin-bottom: 16px; }
-
-  .back-link {
-    background: none;
-    border: none;
-    color: var(--mei);
-    font-weight: 700;
-    cursor: pointer;
-    margin-bottom: 12px;
-    align-self: flex-start;
-    padding: 0;
-  }
-
-  .celebration-layer {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-    pointer-events: none;
-    z-index: 50;
-  }
-  .confetti-piece {
-    position: absolute;
-    width: 8px;
-    height: 8px;
-    border-radius: 2px;
-    opacity: 0;
-  }
-  .confetti-piece.burst {
-    animation-name: burstFly;
-    animation-duration: 0.5s;
-    animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1);
-    animation-fill-mode: forwards;
-  }
-  .confetti-piece.rain {
-    background: none !important;
-    animation-name: rainFall;
-    animation-timing-function: ease-in;
-    animation-fill-mode: forwards;
-  }
-  @keyframes burstFly {
-    0% { transform: translate(0, 0) scale(0.4) rotate(0deg); opacity: 1; }
-    100% { transform: translate(var(--tx), var(--ty)) scale(1) rotate(var(--rot)); opacity: 0; }
-  }
-  @keyframes rainFall {
-    0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: 1; }
-    85% { opacity: 1; }
-    100% { transform: translateY(var(--fall)) translateX(var(--sway)) rotate(var(--rot)); opacity: 0; }
-  }
-
-  /* ==================== L1: 生きてるマスコット ==================== */
-  .mascot-live-wrap {
-    position: relative;
-    width: 168px;
-    margin: 0 auto 6px;
-  }
-  .mascot-live-wrap .mascot {
-    margin: 0 auto;
-    cursor: pointer;
-    animation: mascotIdle 3.2s ease-in-out infinite;
-    user-select: none;
-    -webkit-user-select: none;
-    touch-action: manipulation;
-  }
-  @keyframes mascotIdle {
-    0%, 100% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-7px) rotate(-1.5deg); }
-  }
-  .mascot-live-wrap .mascot.bounce {
-    animation: mascotBounce 0.4s cubic-bezier(0.3, 1.6, 0.5, 1);
-  }
-  @keyframes mascotBounce {
-    0% { transform: scale(1); }
-    35% { transform: scale(0.88, 1.12); }
-    65% { transform: scale(1.1, 0.9); }
-    100% { transform: scale(1); }
-  }
-  .mascot-outfit {
-    position: absolute;
-    top: -4px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 40px;
-    pointer-events: none;
-    z-index: 5;
-    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.15));
-  }
-  .mascot-speech-bubble {
-    position: absolute;
-    top: -6px;
-    left: 50%;
-    transform: translateX(-50%) scale(0.85);
-    background: #fff;
-    border: 2px solid var(--mei);
-    border-radius: 16px;
-    padding: 8px 12px;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--ink);
-    width: max-content;
-    max-width: 230px;
-    text-align: center;
-    line-height: 1.4;
-    z-index: 20;
-    opacity: 0;
-    pointer-events: none;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-  }
-  .mascot-speech-bubble::after {
-    content: '';
-    position: absolute;
-    bottom: -9px;
-    left: 50%;
-    transform: translateX(-50%);
-    border-width: 9px 7px 0;
-    border-style: solid;
-    border-color: var(--mei) transparent transparent;
-  }
-  .mascot-speech-bubble.show {
-    animation: bubblePop 2.5s ease-out forwards;
-  }
-  @keyframes bubblePop {
-    0% { opacity: 0; transform: translateX(-50%) scale(0.7); }
-    12% { opacity: 1; transform: translateX(-50%) scale(1); }
-    85% { opacity: 1; transform: translateX(-50%) scale(1); }
-    100% { opacity: 0; transform: translateX(-50%) scale(0.95); }
-  }
-
-  /* ==================== L3: 記念日バナー ==================== */
-  #anniversary-banner {
-    display: none;
-    text-align: center;
-    background: linear-gradient(135deg, #fff9e6, #ffeef5);
-    border: 2px solid var(--gold);
-    border-radius: 16px;
-    padding: 12px 14px;
-    margin: 0 0 14px;
-    font-size: 14px;
-    font-weight: 700;
-    color: #a67c00;
-    line-height: 1.5;
-  }
-  #anniversary-banner .anniv-deco { font-size: 22px; display: block; margin-bottom: 2px; }
-  .anniv-sprinkle {
-    position: absolute;
-    font-size: 16px;
-    pointer-events: none;
-    z-index: 3;
-    opacity: 0.9;
-  }
-
-  /* ==================== L2: パンダさんパワーゲージ ==================== */
-  #power-gauge-wrap { margin: 0 0 14px; }
-  .power-gauge-label {
-    display: flex;
-    justify-content: space-between;
-    font-size: 12px;
-    color: #888;
-    margin-bottom: 4px;
-    font-weight: 700;
-  }
-  .power-gauge-track {
-    width: 100%;
-    height: 14px;
-    background: #eee;
-    border-radius: 10px;
-    overflow: hidden;
-    border: 1px solid #ddd;
-  }
-  #power-gauge-bar {
-    height: 100%;
-    width: 0%;
-    background: linear-gradient(90deg, var(--mei-light), var(--mei));
-    border-radius: 10px;
-    transition: width 0.7s cubic-bezier(0.2, 0.8, 0.3, 1);
-  }
-  #power-gauge-bar.is-full {
-    animation: gaugeShine 0.9s ease-out;
-  }
-  @keyframes gaugeShine {
-    0% { box-shadow: 0 0 0 0 rgba(255,193,7,0.7); }
-    60% { box-shadow: 0 0 10px 4px rgba(255,193,7,0.5); }
-    100% { box-shadow: 0 0 0 0 rgba(255,193,7,0); }
-  }
-  #power-gauge-comment {
-    font-size: 13px;
-    color: #666;
-    text-align: center;
-    margin-top: 6px;
-  }
-
-  /* ==================== L6: おみくじ ==================== */
-  .omikuji-card {
-    width: 100%;
-    padding: 16px;
-    margin-bottom: 16px;
-    border: 2px solid var(--mei);
-    border-radius: 18px;
-    background: #f2fbf3;
-    text-align: center;
-  }
-  .omikuji-card .omikuji-title { font-weight: 900; font-size: 16px; color: var(--mei); margin-bottom: 10px; }
-  #omikuji-draw-btn {
-    display: inline-block;
-    padding: 12px 22px;
-    font-size: 16px;
-    font-weight: 900;
-    border: none;
-    border-radius: 16px;
-    background: var(--mei);
-    color: #fff;
-    cursor: pointer;
-    box-shadow: 0 4px 0 #05730f;
-  }
-  #omikuji-draw-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #05730f; }
-  #omikuji-draw-btn:disabled { opacity: 0.5; cursor: default; }
-  #omikuji-result {
-    display: none;
-  }
-  #omikuji-rolling {
-    display: none;
-    font-size: 34px;
-    font-weight: 900;
-    color: var(--mei);
-    animation: omikujiRoll 0.15s linear infinite;
-  }
-  @keyframes omikujiRoll {
-    0%, 100% { transform: translateX(-3px) rotate(-3deg); }
-    50% { transform: translateX(3px) rotate(3deg); }
-  }
-  #omikuji-rank {
-    font-family: 'Orbitron', 'Noto Sans JP', sans-serif;
-    font-size: 21px;
-    font-weight: 900;
-    color: var(--mei);
-    margin-bottom: 6px;
-  }
-  #omikuji-message { font-size: 14px; color: #555; margin-bottom: 8px; line-height: 1.5; }
-  #omikuji-lucky { font-size: 13px; color: #a67c00; font-weight: 700; margin-bottom: 10px; }
-  .omikuji-share-btn {
-    display: inline-block;
-    padding: 10px 18px;
-    font-size: 14px;
-    font-weight: 700;
-    border: 2px solid #000;
-    border-radius: 14px;
-    background: #000;
-    color: #fff;
-    cursor: pointer;
-  }
-  #omikuji-done-msg { font-size: 13px; color: #888; margin-top: 8px; }
-
-  /* ==================== L4: 語録カードコレクション ==================== */
-  .card-progress { font-size: 13px; color: #888; margin-bottom: 8px; }
-  .card-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    margin-bottom: 6px;
-  }
-  .quote-card {
-    border: 2px solid var(--mei);
-    border-radius: 14px;
-    padding: 12px 10px;
-    background: #f2fbf3;
-    min-height: 92px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--ink);
-    line-height: 1.4;
-    cursor: pointer;
-    transition: transform 0.15s;
-  }
-  .quote-card.locked {
-    background: #f4f4f4;
-    border-color: #ddd;
-    color: #bbb;
-    font-size: 22px;
-    cursor: default;
-  }
-  .quote-card.shiny {
-    border-color: var(--gold);
-    background: linear-gradient(135deg, #fff9e6, #fff3cc, #fffbe6);
-    box-shadow: 0 0 8px rgba(255,193,7,0.35);
-  }
-  .quote-card.expanded {
-    transform: scale(1.08);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.15);
-    z-index: 2;
-    position: relative;
-  }
-
-  /* ==================== L5: ささポイント＋着せ替え ==================== */
-  .sasa-balance {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: #fff9e6;
-    border: 2px solid var(--gold);
-    border-radius: 14px;
-    padding: 6px 12px;
-    font-weight: 900;
-    color: #a67c00;
-    font-size: 14px;
-    margin: 0 auto 14px;
-    width: fit-content;
-  }
-  .outfit-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin-bottom: 6px;
-  }
-  .outfit-cell {
-    border: 2px solid var(--mei);
-    border-radius: 14px;
-    padding: 10px 6px;
-    text-align: center;
-    background: #f2fbf3;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 700;
-  }
-  .outfit-cell .outfit-emoji { font-size: 26px; display: block; margin-bottom: 4px; }
-  .outfit-cell.locked { background: #f4f4f4; border-color: #ddd; color: #999; }
-  .outfit-cell.locked .outfit-emoji { filter: grayscale(1); opacity: 0.5; }
-  .outfit-cell.equipped { background: var(--mei); border-color: var(--mei); color: #fff; }
-  .outfit-cell .outfit-cost { font-size: 10px; color: #a67c00; margin-top: 2px; }
-  .outfit-cell.equipped .outfit-cost { color: #eaffed; }
-  .outfit-cell.locked .outfit-cost { color: #999; }
-
-  /* ==================== L4: 語録カードGET演出（リザルト） ==================== */
-  #result-newcard {
-    display: none;
-    text-align: center;
-    background: #fff9e6;
-    border: 2px solid var(--gold);
-    border-radius: 14px;
-    padding: 10px;
-    font-weight: 900;
-    color: #a67c00;
-    margin-bottom: 14px;
+    /* ノッチ（画面上部の黒い出っぱり） */
+    #app::before{ content:""; position:absolute; top:0; left:50%; transform:translateX(-50%); width:150px; height:26px; background:#1c1c22; border-radius:0 0 18px 18px; z-index:100; }
+    /* 各画面はフレーム内でスクロール */
+    .screen{ overflow-y:auto; }
+    #screen-play{ overflow:hidden; }
+    /* ノッチを避けて上部に余白 */
+    #screen-home, #screen-play-select, #screen-collection, #screen-encyclopedia,
+    #screen-intro, #screen-name, #screen-result{ padding-top:38px; }
+    .lesson-top{ padding-top:34px; }
+    .sound-toggle-btn{ top:34px; }
+    /* 下タブ・モーダルはフレーム内に収める */
+    .tab-bar{ position:absolute; left:0; right:0; transform:none; max-width:none; }
+    #app.has-tabbar{ padding-bottom:0; }
+    #app.has-tabbar .screen.active{ padding-bottom:88px; }
+    .card-detail-overlay{ position:absolute; }
   }
 </style>
 </head>
@@ -1098,35 +335,43 @@
 <div id="app">
 
   <!-- 導入クイズ（初回のみ） -->
-  <section id="screen-intro" class="screen active">
+  <section id="screen-intro" class="screen centered active">
     <img class="mascot" src="assets/Meimei.png" alt="愛生博士">
-    <h1 class="center">愛生博士クイズ</h1>
+    <h1 class="center" style="font-size:30px;margin:8px 0 4px;">愛生博士クイズ</h1>
     <p class="subtitle">まずはかんたんな2問から〜！</p>
-    <div id="intro-question" style="font-size:18px;font-weight:700;margin-bottom:16px;text-align:center;"></div>
+    <div id="intro-question" style="font-size:18px;font-weight:800;margin-bottom:16px;"></div>
     <div id="intro-choices"></div>
   </section>
 
   <!-- 名前入力（初回のみ） -->
-  <section id="screen-name" class="screen">
+  <section id="screen-name" class="screen centered">
     <img class="mascot" src="assets/Meimei.png" alt="めいめい">
-    <h2 class="center">あなたのことなんて呼べばいい？</h2>
+    <h2 class="center" style="font-size:22px;">あなたのこと、なんて呼べばいい？</h2>
     <p class="subtitle">これを覚えたら、もう二度と聞かないよ〜</p>
     <input id="name-input" class="name-input" type="text" maxlength="12" placeholder="例: パンダさん">
     <button class="primary-btn" onclick="submitName()">これでOK！</button>
     <button class="secondary-btn" onclick="skipName()">あとで決める</button>
   </section>
 
-  <!-- 🏠 ホームタブ -->
+  <!-- 🏠 ホーム（Duolingo「まなぶ」＝主役の1アクション＋あとはタブへ） -->
   <section id="screen-home" class="screen">
     <button class="sound-toggle-btn" id="sound-toggle" onclick="toggleSound()">🔊</button>
 
-    <!-- L3: 記念日バナー -->
+    <!-- 上部ステータス -->
+    <div class="topbar">
+      <span class="stat-pill fire">🔥 <b id="home-streak">0</b>日</span>
+      <span class="stat-pill rank">🎓 <span id="home-rank">愛生博士見習い</span></span>
+    </div>
+    <div class="rank-progress-caption" id="home-rank-progress"></div>
+
+    <!-- 記念日バナー（該当日のみ表示） -->
     <div id="anniversary-banner">
       <span class="anniv-deco" id="anniversary-deco"></span>
-      <span id="anniversary-label"></span><br>
+      <span id="anniversary-label"></span>
       <span id="anniversary-message"></span>
     </div>
 
+    <!-- マスコット＋吹き出し -->
     <div class="home-mascot-wrap mascot-live-wrap" id="mascot-live-wrap">
       <div class="mascot-speech-bubble" id="mascot-bubble"></div>
       <span class="mascot-outfit" id="mascot-outfit" style="display:none;"></span>
@@ -1134,45 +379,27 @@
     </div>
     <h2 id="home-greeting" class="home-greeting">おかえり！</h2>
 
-    <!-- L2: パンダさんパワーゲージ -->
+    <!-- パワーゲージ（コンパクト） -->
     <div id="power-gauge-wrap">
       <div class="power-gauge-label"><span>🐼 パンダさんパワー</span><span id="power-gauge-value">0/100</span></div>
       <div class="power-gauge-track"><div id="power-gauge-bar"></div></div>
       <div id="power-gauge-comment"></div>
     </div>
 
-    <div class="rank-badge">
-      <span class="rank-label">現在のランク</span>
-      <span class="rank-title" id="home-rank">愛生博士見習い</span>
-      <span class="rank-progress" id="home-rank-progress"></span>
-    </div>
-    <div class="home-streak-row" id="home-streak-row">
-      🔥 連続プレイ <span id="home-streak">0</span>日
-    </div>
-
-    <!-- N1: ホームの遊びゾーン（今日の3問→タイムアタック→あそびかたリンク） -->
-    <div class="home-play-zone">
-      <div class="home-daily-cta" id="daily-card" role="button" tabindex="0" onclick="onDailyCardTap(event)" onkeydown="if(event.key==='Enter')onDailyCardTap(event)">
-        <span class="mode-icon">📅</span>
-        <span style="flex:1;">
-          <span class="mode-title">今日の3問</span><br>
-          <span class="mode-desc" id="daily-desc">毎日変わる3問に挑戦。みんな同じ問題だよ</span><br>
-          <button class="daily-next-btn" id="daily-next-btn" style="display:none;" onclick="event.stopPropagation(); startMode('timeAttack')">⏱ つぎは タイムアタック！</button>
-        </span>
-      </div>
-
-      <button class="home-timeattack-cta" onclick="startMode('timeAttack')">
-        <span class="mode-icon">⏱</span>
-        <span>
-          <span class="mode-title">60秒タイムアタック</span><br>
-          <span class="mode-desc">まずはここから！何問正解できるかな？</span>
-        </span>
-      </button>
-
-      <button class="home-playall-link" onclick="goToTab('play-select')">🎮 ぜんぶのあそびかたを見る →</button>
+    <!-- ヒーロー：今日の3問（主役の「はじめる」） -->
+    <div class="hero-card home-daily-cta" id="daily-card" role="button" tabindex="0" onclick="onDailyCardTap(event)" onkeydown="if(event.key==='Enter')onDailyCardTap(event)">
+      <div class="hero-eyebrow">きょうのクイズ</div>
+      <div class="hero-icon">📅</div>
+      <div class="hero-title mode-title">今日の3問</div>
+      <div class="hero-desc mode-desc" id="daily-desc">毎日変わる3問に挑戦。みんな同じ問題だよ</div>
+      <span class="hero-cta">はじめる</span>
+      <button class="daily-next-btn" id="daily-next-btn" style="display:none;" onclick="event.stopPropagation(); startMode('timeAttack')">⏱ つぎは タイムアタック！</button>
     </div>
 
-    <!-- L6: パンダさんおみくじ -->
+    <!-- ほかの遊び方はタブへ -->
+    <button class="home-more-link home-playall-link" onclick="goToTab('play-select')">🎮 ほかのモードで遊ぶ →</button>
+
+    <!-- おみくじ（一旦非表示・機能は温存） -->
     <div class="omikuji-card">
       <div class="omikuji-title">🎋 今日のパンダさんおみくじ</div>
       <div id="omikuji-rolling">🎋 ころころ中…🎋</div>
@@ -1187,84 +414,69 @@
     </div>
   </section>
 
-  <!-- 🎮 あそぶタブ -->
+  <!-- 🎮 あそぶ（モード選択） -->
   <section id="screen-play-select" class="screen">
     <button class="sound-toggle-btn" id="sound-toggle-2" onclick="toggleSound()">🔊</button>
-    <h2 class="center">あそぶ</h2>
+    <div class="screen-title">あそぶ</div>
     <div class="status-bar">
-      <div class="status-item">
-        <span class="status-label">タイムアタック<br>ハイスコア</span>
-        <b id="modes-best-timeattack">0</b>
-      </div>
-      <div class="status-item">
-        <span class="status-label">エンドレス<br>ハイスコア</span>
-        <b id="modes-best-endless">0</b>
-      </div>
-      <div class="status-item">
-        <span class="status-label">連続プレイ</span>
-        <b><span id="modes-streak">0</span>日</b>
-      </div>
+      <div class="status-item"><span class="status-label">タイムアタック<br>ハイスコア</span><b id="modes-best-timeattack">0</b></div>
+      <div class="status-item"><span class="status-label">エンドレス<br>ハイスコア</span><b id="modes-best-endless">0</b></div>
+      <div class="status-item"><span class="status-label">連続<br>プレイ</span><b><span id="modes-streak">0</span>日</b></div>
     </div>
 
     <button class="mode-card featured" onclick="startMode('timeAttack')">
       <span class="mode-icon">⏱️</span>
-      <span>
-        <span class="mode-title">タイムアタック</span><br>
-        <span class="mode-desc">60秒でどれだけ正解できるか挑戦！まずはここから</span>
-      </span>
+      <span><span class="mode-title">タイムアタック</span><br><span class="mode-desc">60秒でどれだけ正解できるか挑戦！まずはここから</span></span>
     </button>
-
     <button class="mode-card" onclick="startMode('endless')">
       <span class="mode-icon">♾️</span>
-      <span>
-        <span class="mode-title">エンドレスモード</span><br>
-        <span class="mode-desc">間違えるまで続く。だんだん難しくなるよ</span>
-      </span>
+      <span><span class="mode-title">エンドレスモード</span><br><span class="mode-desc">間違えるまで続く。だんだん難しくなるよ</span></span>
     </button>
-
     <button class="mode-card" onclick="startMode('study')">
       <span class="mode-icon">📖</span>
-      <span>
-        <span class="mode-title">学習モード</span><br>
-        <span class="mode-desc">苦手を復習。愛生ちゃん図鑑も見られる</span>
-      </span>
+      <span><span class="mode-title">学習モード</span><br><span class="mode-desc">選ぶ→こたえあわせで、解説をじっくり読める</span></span>
     </button>
   </section>
 
-  <!-- 📚 コレクションタブ -->
+  <!-- 📚 コレクション -->
   <section id="screen-collection" class="screen">
     <button class="sound-toggle-btn" id="sound-toggle-3" onclick="toggleSound()">🔊</button>
-    <h2 class="center">コレクション</h2>
-
+    <div class="screen-title">コレクション</div>
     <div class="sasa-balance" id="collection-sasa-balance">🎋 ささ <span id="collection-sasa-value">0</span></div>
-
     <div class="badge-section-title">語録カード <span id="card-progress-text"></span></div>
     <div id="quote-card-grid" class="card-grid"></div>
-
     <div class="badge-section-title">着せ替え</div>
     <div id="outfit-grid" class="outfit-grid"></div>
-
     <div class="badge-section-title">累計正解バッジ</div>
     <div id="badge-grid-correct-home" class="badge-grid"></div>
     <div class="badge-section-title">連続プレイバッジ</div>
     <div id="badge-grid-streak-home" class="badge-grid"></div>
-    <button class="secondary-btn" onclick="openEncyclopedia()">📚 愛生ちゃん図鑑を見る</button>
+    <button class="primary-btn outline-btn" onclick="openEncyclopedia()" style="margin-top:8px;">📚 愛生ちゃん図鑑を見る</button>
   </section>
 
-  <!-- プレイ画面 -->
+  <!-- ▶ プレイ（レッスン画面） -->
   <section id="screen-play" class="screen">
-    <div id="play-clock-wrap" style="display:none;">残り <span id="play-clock">60</span> 秒</div>
-    <div class="timer-track"><div id="play-timer-bar"></div></div>
-    <span id="play-category" class="category-badge">カテゴリ</span>
-    <div id="play-progress"></div>
-    <div id="play-question"></div>
-    <div id="play-choices"></div>
-    <div id="play-feedback" class="feedback"></div>
+    <div class="lesson-top">
+      <button class="lesson-x" onclick="backToModes()">✕</button>
+      <div class="timer-track"><div id="play-timer-bar"></div></div>
+      <div id="play-clock-wrap" style="display:none;">⏱ <span id="play-clock">60</span></div>
+    </div>
+    <div class="lesson-body">
+      <span id="play-category" class="category-badge">カテゴリ</span>
+      <div id="play-progress"></div>
+      <div id="play-question"></div>
+      <div id="play-choices"></div>
+    </div>
+    <div class="lesson-foot">
+      <div id="play-feedback" class="feedback"></div>
+      <button id="study-check-btn" class="primary-btn" style="display:none;" onclick="studyCheck()">こたえあわせ</button>
+      <button id="study-next-btn" class="primary-btn" style="display:none;" onclick="studyNext()">つづける →</button>
+    </div>
     <div id="combo-display"></div>
   </section>
 
-  <!-- リザルト -->
-  <section id="screen-result" class="screen">
+  <!-- 🎉 リザルト -->
+  <section id="screen-result" class="screen centered">
     <img class="mascot" src="assets/Meimei.png" alt="結果発表">
     <h2 id="result-mode-label" class="center">結果発表！</h2>
     <div id="result-newbest">🎉 自己ベスト更新！🎉</div>
@@ -1274,50 +486,44 @@
     <div id="result-score">0</div>
     <div id="result-best-wrap">自己ベスト：<span id="result-best">0</span></div>
 
-    <!-- S1: 博士度診断メーター（timeAttack/endlessのみ） -->
-    <div id="result-diagnosis">
+    <div id="result-diagnosis" style="width:100%;">
       <div id="result-diagnosis-title"></div>
       <div id="result-diagnosis-comment"></div>
       <div class="meter-track"><div id="result-meter-bar"></div></div>
       <div id="result-diagnosis-percent"></div>
     </div>
 
-    <!-- S2: 今日の3問 絵文字グリッド（dailyのみ） -->
     <div id="result-daily-grid">
       <div id="result-daily-emojis"></div>
       <div id="result-daily-score"></div>
     </div>
 
     <p class="center" style="font-size:13px;color:#888;">連続プレイ <span id="result-streak">0</span>日目</p>
-    <p class="center" id="result-rank" style="font-size:14px;color:var(--mei);font-weight:700;margin-bottom:16px;"></p>
-    <button class="callresponse-btn" onclick="callResponse()">パンダさん、パワーーー！！</button>
-    <button class="primary-btn" id="result-primary-btn" onclick="playAgain()">🔁 もう1回！</button>
-    <button class="primary-btn outline-btn" id="result-secondary-action-btn" style="display:none;" onclick="resultSecondaryAction()"></button>
-    <button class="share-btn" onclick="shareToX()">🐦 Xで結果をシェア</button>
-    <button class="secondary-btn" onclick="backToModes()">モードを選び直す</button>
+    <p class="center" id="result-rank"></p>
+    <div style="width:100%;">
+      <button class="callresponse-btn" onclick="callResponse()">パンダさん、パワーーー！！</button>
+      <button class="primary-btn" id="result-primary-btn" onclick="playAgain()">🔁 もう1回！</button>
+      <button class="primary-btn outline-btn" id="result-secondary-action-btn" style="display:none;margin-top:10px;" onclick="resultSecondaryAction()"></button>
+      <button class="share-btn" onclick="shareToX()">🐦 Xで結果をシェア</button>
+      <button class="secondary-btn" onclick="backToModes()">モードを選び直す</button>
+    </div>
     <div id="callresponse-pop"></div>
   </section>
 
-  <!-- 図鑑 -->
+  <!-- 📖 図鑑 -->
   <section id="screen-encyclopedia" class="screen">
     <button class="back-link" onclick="goToTab('collection')">← 戻る</button>
-    <h2>愛生ちゃん図鑑</h2>
+    <h2 style="font-size:24px;margin-bottom:12px;">愛生ちゃん図鑑</h2>
     <div id="encyclopedia-list"></div>
     <a class="blog-link-btn" href="https://ameblo.jp/morningmusume15ki/entrylist.html" target="_blank" rel="noopener">📖 愛生ちゃんのブログを読みに行く</a>
   </section>
 
-  <!-- 下タブナビゲーション（J6） -->
+  <!-- 下タブ -->
   <nav class="tab-bar" id="tab-bar">
     <div class="tab-bar-inner">
-      <button class="tab-btn" id="tab-btn-home" onclick="goToTab('home')">
-        <span class="tab-icon">🏠</span><span>ホーム</span>
-      </button>
-      <button class="tab-btn" id="tab-btn-play" onclick="goToTab('play-select')">
-        <span class="tab-icon">🎮</span><span>あそぶ</span>
-      </button>
-      <button class="tab-btn" id="tab-btn-collection" onclick="goToTab('collection')">
-        <span class="tab-icon">📚</span><span>コレクション</span>
-      </button>
+      <button class="tab-btn" id="tab-btn-home" onclick="goToTab('home')"><span class="tab-icon">🏠</span><span>ホーム</span></button>
+      <button class="tab-btn" id="tab-btn-play" onclick="goToTab('play-select')"><span class="tab-icon">🎮</span><span>あそぶ</span></button>
+      <button class="tab-btn" id="tab-btn-collection" onclick="goToTab('collection')"><span class="tab-icon">📚</span><span>コレクション</span></button>
     </div>
   </nav>
 
