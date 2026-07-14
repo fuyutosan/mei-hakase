@@ -349,8 +349,12 @@
     <h2 class="center" style="font-size:22px;">あなたのこと、なんて呼べばいい？</h2>
     <p class="subtitle">これを覚えたら、もう二度と聞かないよ〜</p>
     <input id="name-input" class="name-input" type="text" maxlength="12" placeholder="例: パンダさん">
+    <input id="secret-input" class="name-input" type="text" maxlength="16" placeholder="あいことば（任意・記録を守る合言葉）">
+    <p class="subtitle" style="font-size:12px; margin-top:-6px;">あいことばを決めておくと、スマホを変えても・データが消えても続きからあそべるよ🐼</p>
     <button class="primary-btn" onclick="submitName()">これでOK！</button>
     <button class="secondary-btn" onclick="skipName()">あとで決める</button>
+    <button class="back-link" onclick="restoreFromCloud()" style="margin-top:10px;">別の端末で作った記録を呼び出す</button>
+    <p id="name-cloud-msg" class="subtitle" style="font-size:13px; min-height:18px; color:var(--duo);"></p>
   </section>
 
   <!-- 🏠 ホーム（Duolingo「まなぶ」＝主役の1アクション＋あとはタブへ） -->
@@ -531,6 +535,7 @@
 
 <script src="quiz-data.js"></script>
 <script src="mei-content.js"></script>
+<script src="cloud-sync.js"></script>
 <script src="app.js"></script>
 <script>
   if ('serviceWorker' in navigator) {

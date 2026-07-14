@@ -77,6 +77,7 @@ function loadSave() {
 
 function writeSave(save) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(save));
+  if (window.CloudSync) window.CloudSync.schedulePush(save); // クラウドにも裏でコピー（設定済みのときだけ）
 }
 
 let save = loadSave();
@@ -264,6 +265,23 @@ function boot() {
     startIntro();
   } else {
     renderHome();
+    maybeSyncFromCloud(); // 裏でクラウドの最新記録を取りに行く（設定＆あいことば済みのときだけ）
+  }
+}
+
+// クラウドに、より新しい記録があればそれを採用してホームを描き直す
+async function maybeSyncFromCloud() {
+  if (!window.CloudSync || !CloudSync.enabled()) return;
+  const cred = CloudSync.getCred();
+  if (!cred) return;
+  const remote = await CloudSync.pull(cred.nickname, cred.secretHash);
+  if (!remote) return;
+  const localAt = save._syncedAt || '';
+  const remoteAt = remote._syncedAt || '';
+  if (!localAt || remoteAt > localAt) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
+    save = loadSave(); // 既存の防御ガードを通して読み直す
+    renderHome();
   }
 }
 
@@ -302,13 +320,42 @@ function answerIntro(i) {
   }
 }
 
-function submitName() {
+async function submitName() {
   const input = document.getElementById('name-input');
-  const nickname = input.value.trim();
-  save.nickname = nickname || '名無しのパンダさん';
+  const nickname = input.value.trim() || '名無しのパンダさん';
+  save.nickname = nickname;
   save.onboarded = true;
   writeSave(save);
   justOnboarded = true;
+  // あいことばが入っていたら、クラウド保存を有効にして初回アップロード
+  const secretInput = document.getElementById('secret-input');
+  const secret = secretInput ? secretInput.value.trim() : '';
+  if (secret && window.CloudSync && CloudSync.enabled()) {
+    const hash = await CloudSync.hashSecret(nickname, secret);
+    CloudSync.saveCred(nickname, hash);
+    CloudSync.pushNow(save); // 初回アップロード（現在のセーブを明示的に渡す）
+  }
+  goToModes();
+}
+
+// 別の端末で作った記録・消えてしまった記録を「名前＋あいことば」で呼び出す
+async function restoreFromCloud() {
+  const nm = (document.getElementById('name-input').value || '').trim();
+  const secEl = document.getElementById('secret-input');
+  const sc = secEl ? secEl.value.trim() : '';
+  const msg = document.getElementById('name-cloud-msg');
+  function tell(t) { if (msg) msg.textContent = t; }
+  if (!nm || !sc) { tell('名前とあいことばの両方を入れてね🐼'); return; }
+  if (!window.CloudSync || !CloudSync.enabled()) { tell('いまは呼び出しの準備中だよ。もう少し待ってね🐼'); return; }
+  tell('さがしてるよ…🐼');
+  const hash = await CloudSync.hashSecret(nm, sc);
+  const remote = await CloudSync.pull(nm, hash);
+  if (!remote) { tell('その名前とあいことばの記録は見つからなかったよ。入力をたしかめてね'); return; }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
+  save = loadSave();
+  CloudSync.saveCred(nm, hash);
+  tell('おかえり！記録が見つかったよ🐼');
+  justOnboarded = false;
   goToModes();
 }
 
